@@ -1,0 +1,76 @@
+---
+title: "Consolidate independent variables"
+output: html_notebook
+---
+
+```{r setup, echo=FALSE, include=FALSE}
+library(tidyverse)
+library(xlsx)
+library(RPostgreSQL)
+db <- dbConnect(RPostgreSQL::PostgreSQL(), dbname = "nuts", user="bdukai", host="localhost")
+knitr::opts_chunk$set(connection = "db")
+```
+
+In this notebook I am consolidating the independent variables to NUTS level 2 and version 2010.
+
+# NUTS 2006
+
+```{r nuts_2006}
+nuts_2006 <- read.xlsx("/home/bdukai/Data/COHESIFY/NUTS conundrum/2006-2010.xls", sheetName = "NUTS2006-NUTS2010", colIndex = c(2,9), header = TRUE, startRow = 2, endRow = 1832)
+
+nuts_2006_levels <- dbReadTable(db, "nuts_2006_levels")
+```
+
+#  Territorial typology à border regions
+
+*"As described in Regional Focus No. 1/2011. The NUTS 3-based selection of border regions refers to the regions participating in the core areas of cross-border cooperation programmes in the programming period 2007-2013. Due to NUTS boundary changes, some current NUTS 3 regions are only partly eligible as programme areas. More information on how to apply the typology can be found in the guidance note.*
+
+Classification:
+
++ 0 – No program area
++ 1 – Programme area
++ 9 – Programme area (partly)
+
+
+
+```{r border_in}
+typo_border_regions <- read.xlsx("/home/bdukai/Data/COHESIFY/Datasets for regression/Territorial typology/Typologies_metadata_data_final (2).xls", sheetName = "data regional typologies", colIndex = c(1,2,3,8), endRow = 1464, header = TRUE)
+# remove rows with metadata
+typo_border_regions <- filter(typo_border_regions, typ_border_A != 2009)
+```
+
+```{r border_aggregate}
+border_lvl2 <- full_join(nuts_2006_levels, typo_border_regions, by = c("id3" = "id")) %>% 
+    select(id2, typ_border_A) %>% 
+    group_by(id2) %>%
+    count(typ_border_A)
+non_programme <- border_lvl2 %>% group_by(id2) %>% 
+    mutate(nr_lvl3 = sum(n)) %>% 
+    filter(typ_border_A == 0) %>% 
+    mutate(non_programme = round(n/nr_lvl3, 2))
+programme <- border_lvl2 %>% group_by(id2) %>% 
+    mutate(nr_lvl3 = sum(n)) %>% 
+    filter(typ_border_A == 1) %>% 
+    mutate(programme = round(n/nr_lvl3, 2))
+partially_programme <- border_lvl2 %>% group_by(id2) %>% 
+    mutate(nr_lvl3 = sum(n)) %>% 
+    filter(typ_border_A == 9) %>% 
+    mutate(partially_programme = round(n/nr_lvl3, 2))
+typ_border_lvl2_2006 <- nuts_2006_levels %>% select(id2) %>% 
+    full_join(.,non_programme, by = "id2") %>% 
+    full_join(., programme, by = "id2") %>%
+    full_join(., partially_programme, by = "id2") %>% 
+    select(id2, non_programme, programme, partially_programme) %>% 
+    mutate(non_programme = case_when(is.na(.$non_programme) ~ 0.0,
+                                     TRUE ~ .$non_programme)) %>% 
+    mutate(programme = case_when(is.na(.$programme) ~ 0.0,
+                                     TRUE ~ .$programme)) %>%
+    mutate(partially_programme = case_when(is.na(.$partially_programme) ~ 0.0,
+                                     TRUE ~ .$partially_programme))
+```
+
+## Question
+
+So when I aggregate level 3 –> level 2, how do I decide how much is a level 2 a border region? Compute percent of border regions within?
+
+What about "partially" border regions? Would they count as 50%?
