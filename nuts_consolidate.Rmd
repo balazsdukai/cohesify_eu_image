@@ -5,6 +5,7 @@ output: html_notebook
 
 ```{r setup, echo=FALSE, include=FALSE}
 library(tidyverse)
+library(haven)
 library(xlsx)
 library(RPostgreSQL)
 db <- dbConnect(RPostgreSQL::PostgreSQL(), dbname = "nuts", user="bdukai", host="localhost")
@@ -13,13 +14,29 @@ knitr::opts_chunk$set(connection = "db")
 
 In this notebook I am consolidating the independent variables to NUTS level 2 and version 2010.
 
-# NUTS 2006
+# NUTS
 
 ```{r nuts_2006}
-nuts_2006 <- read.xlsx("/home/bdukai/Data/COHESIFY/NUTS conundrum/2006-2010.xls", sheetName = "NUTS2006-NUTS2010", colIndex = c(2,9), header = TRUE, startRow = 2, endRow = 1832)
-
 nuts_2006_levels <- dbReadTable(db, "nuts_2006_levels")
 ```
+
+
+```{r nuts_2010}
+nuts_2010_levels <- dbReadTable(db, "nuts_2010_levels")
+```
+
+```{sql connection=db, output.var="shp_2010_0"}
+select distinct nuts_id
+from nuts_2010_poly
+where stat_levl_ = 0
+```
+
+The countries that are not included in the Excel sheet but included in the shapefile.
+```{r}
+setdiff(n2010_0$Code.2010, shp_2010_0$nuts_id)
+setdiff(shp_2010_0$nuts_id, n2010_0$Code.2010)
+```
+
 
 #  Territorial typology à border regions
 
@@ -68,9 +85,28 @@ typ_border_lvl2_2006 <- nuts_2006_levels %>% select(id2) %>%
     mutate(partially_programme = case_when(is.na(.$partially_programme) ~ 0.0,
                                      TRUE ~ .$partially_programme))
 ```
+```{r}
+write.csv(typ_border_lvl2_2006, file = "typ_border_lvl2_2006.csv",
+          row.names = FALSE)
+```
+
 
 ## Question
 
 So when I aggregate level 3 –> level 2, how do I decide how much is a level 2 a border region? Compute percent of border regions within?
 
 What about "partially" border regions? Would they count as 50%?
+
+NUTS2 regions are not weighted by NUTS3 population, because in case of being a programme region or not it doesn't make sense.
+
+
+# Trust in national government
+
+```{r read_trust}
+trust_raw <- read_sav("/home/bdukai/Data/COHESIFY/Datasets for regression/Trust in national government/ZA6694_v1-0-0 (1).sav")
+```
+
+```{r}
+table(trust_raw$isocntry)
+```
+
