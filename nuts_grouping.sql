@@ -31,6 +31,8 @@ left join lvl2 on st_covers(lvl1.geom, lvl2.geom)
 left join lvl3 on st_covers(lvl2.geom, lvl3.geom);
 
 -- NUTS 2010
+-- spatial search doesn't work for NUTS2010, because FR91 is not
+-- covered by higher level regions, probably a data error
 create or replace view nuts_2010_levels as
 with
 lvl0 as (

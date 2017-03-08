@@ -16,27 +16,21 @@ In this notebook I am consolidating the independent variables to NUTS level 2 an
 
 # NUTS
 
+## Version 2006
+
 ```{r nuts_2006}
 nuts_2006_levels <- dbReadTable(db, "nuts_2006_levels")
 ```
 
+## Version 2010
+
+The level-relations are derived from the region's names, because *FR91* (a colonial island) is not covered by higher level regions, thus spatial search misses it.
 
 ```{r nuts_2010}
 nuts_2010_levels <- dbReadTable(db, "nuts_2010_levels")
 ```
 
-```{sql connection=db, output.var="shp_2010_0"}
-select distinct nuts_id
-from nuts_2010_poly
-where stat_levl_ = 0
-```
-
-The countries that are not included in the Excel sheet but included in the shapefile.
-```{r}
-setdiff(n2010_0$Code.2010, shp_2010_0$nuts_id)
-setdiff(shp_2010_0$nuts_id, n2010_0$Code.2010)
-```
-
+The countries that are not included in the Excel sheet but included in the shapefile are *"CH" "IS" "TR" "LI" "NO" "ME" "MK" "HR"*
 
 #  Territorial typology à border regions
 
@@ -81,10 +75,13 @@ typ_border_lvl2_2006 <- nuts_2006_levels %>% select(id2) %>%
     mutate(non_programme = case_when(is.na(.$non_programme) ~ 0.0,
                                      TRUE ~ .$non_programme)) %>% 
     mutate(programme = case_when(is.na(.$programme) ~ 0.0,
-                                     TRUE ~ .$programme)) %>%
+                                 TRUE ~ .$programme)) %>%
     mutate(partially_programme = case_when(is.na(.$partially_programme) ~ 0.0,
-                                     TRUE ~ .$partially_programme))
+                                           TRUE ~ .$partially_programme))
+rm(border_lvl2, programme, non_programme, partially_programme)
 ```
+
+
 ```{r}
 write.csv(typ_border_lvl2_2006, file = "typ_border_lvl2_2006.csv",
           row.names = FALSE)
@@ -106,7 +103,86 @@ NUTS2 regions are not weighted by NUTS3 population, because in case of being a p
 trust_raw <- read_sav("/home/bdukai/Data/COHESIFY/Datasets for regression/Trust in national government/ZA6694_v1-0-0 (1).sav")
 ```
 
+From [European Values Study 2008](http://zacat.gesis.org/webview/index/en/ZACAT/ZACAT.c.ZACAT/European-Values-Study-EVS-.d.5/EVS-2008-4th-wave.d.1/EVS-2008-Integrated-Dataset.s.ZA4800/Archive-and-ID-Variables.h.175/country-abbreviation/fVariable/ZA4800_V11)
+
+*AL Albania; AM Armenia; AT Austria; AZ Azerbaijan; BA Bosnia-Herzegovina; BE Belgium; BG Bulgaria; BY Belarus; CH Switzerland; CY Cyprus; CZ Czech Republic; DE Germany; DK Denmark; EE Estonia; ES Spain; FI Finland; FR France; GB-GBN Great Britain; GE Georgia; GR Greece; HR Croatia; HU Hungary; IE Ireland; IS Iceland; IT Italy; RS-KM Kosovo; LT Lithuania; LU Luxembourg; LV Latvia; MD Moldova; ME Montenegro; MK Macedonia; MT Malta; GB-NIR Northern Ireland; CY-TCC Northern Cyprus; NL Netherlands; NO Norway; PL Poland; PT Portugal; RO Romania; RS Serbia; RU Russia; SE Sweden; SI Slovenia; SK Slovakia; TK Turkey; UA Ukraine*
+
+*All surveyed countries and regions, i.e. including separate samples for East-/West-Germany, Great Britain/Northern Ireland, Kosovo, and the Turkish Cypriot Community (TCC), are coded in accordance with the ISO 3166-1-alpha-2 country code, if available. ISO 3166-2 is applied for the United Kingdom subdivisions. ISO standard codes are not available for the “historical” East/West subdivision of Germany (DE-E/DE-W), Kosovo (RS-KM), and for the Turkish Cypriot Community in northern Cyprus (CY-TCC), the internationally not recognized “Turkish Republic of Northern Cyprus”.*
+
 ```{r}
 table(trust_raw$isocntry)
 ```
+
+```{r}
+table(nuts_2010_levels$id0)
+```
+
+## Attribute translation
+
+Dataset includes *AL* and *RS*, which are non-EU countries, thus the corresponding records are removed. Country codes that differ in the ISO standard and the NUTS declaration are translated using the schema below.
+
+
+| ISO 3166-1-alpha-2; ISO 3166-2; historical | NUTS 0 | NUTS 1                                           |
+|--------------------------------------------|--------|--------------------------------------------------|
+| DE-E                                       | DE     | DEG, DED, DEE, DE3, DE4, DE8                     |
+| DE-W                                       | DE     | DE1, DE2, DE5, DE6, DE7, DE9, DEA, DEB, DEC, DEF |
+| GB-NIR                                     | UK     | UKN                                              |
+| GB-GBN                                     | UK     | UK…                                              |
+| CY-TCC                                     | CY     | CY0                                              |
+
+
+```{r}
+# Translation schema for NUTS -> ISO3166/-2 & historical
+nuts_2010_levels_iso <- nuts_2010_levels %>%
+    mutate(iso = case_when(.$id1 == "UKN" ~ "GB-NIR",
+                           .$id0 == "UK" & .$id1 != "UKN" ~ "GB-GBN",
+                           .$id1 == "DE3" ~ "DE-E",
+                           .$id1 == "DE4" ~ "DE-E",
+                           .$id1 == "DE8" ~ "DE-E",
+                           .$id1 == "DED" ~ "DE-E",
+                           .$id1 == "DEE" ~ "DE-E",
+                           .$id1 == "DEG" ~ "DE-E",
+                           .$id1 == "DE1" ~ "DE-W",
+                           .$id1 == "DE2" ~ "DE-W",
+                           .$id1 == "DE5" ~ "DE-W",
+                           .$id1 == "DE6" ~ "DE-W",
+                           .$id1 == "DE7" ~ "DE-W",
+                           .$id1 == "DE9" ~ "DE-W",
+                           .$id1 == "DEA" ~ "DE-W",
+                           .$id1 == "DEB" ~ "DE-W",
+                           .$id1 == "DEC" ~ "DE-W",
+                           .$id1 == "DEF" ~ "DE-W",
+                           .$id0 == "EL" ~ "GR",
+                           TRUE ~ .$id0
+                           ))
+# There is only a single NUTS region for Cyprus at all levels, but two
+# values in the Trust data (CY, CY-TCC)
+nuts_2010_levels_iso <- nuts_2010_levels_iso %>% 
+    bind_rows(data.frame(id0 = "CY",
+                         id1 = "CY0",
+                         id2 = "CY00",
+                         id3 = "CY000",
+                         iso = "CY-TCC")) %>% 
+    arrange(id0) %>% 
+    select(-id3) %>% 
+    distinct()
+```
+
+```{r test}
+t <- trust_raw["isocntry"]
+t <- t %>% filter(isocntry != "AL" & isocntry != "RS")
+
+test <- inner_join(t, nuts_2010_levels_iso, by = c("isocntry" = "iso")) # test join
+
+test2 <- trust_raw %>% 
+    slice(1:20) %>%
+    select(-(q1.1:q1.36)) # these variables duplicate the "isocntry"
+```
+
+
+## Questions
+
+Which variables are needed from the several hundred? Which ones describe the *Trust in government*?
+
+Data/study description?
 
