@@ -34,7 +34,7 @@ The countries that are not included in the Excel sheet but included in the shape
 
 #  Territorial typology à border regions
 
-*"As described in Regional Focus No. 1/2011. The NUTS 3-based selection of border regions refers to the regions participating in the core areas of cross-border cooperation programmes in the programming period 2007-2013. Due to NUTS boundary changes, some current NUTS 3 regions are only partly eligible as programme areas. More information on how to apply the typology can be found in the guidance note.*
+*As described in Regional Focus No. 1/2011. The NUTS 3-based selection of border regions refers to the regions participating in the core areas of cross-border cooperation programmes in the programming period 2007-2013. Due to NUTS boundary changes, some current NUTS 3 regions are only partly eligible as programme areas. More information on how to apply the typology can be found in the guidance note.*
 
 Classification:
 
@@ -88,7 +88,12 @@ write.csv(typ_border_lvl2_2006, file = "typ_border_lvl2_2006.csv",
 ```
 
 
-## Question
+This variable will become *regions that **participated** in the core areas of cross-border cooperation programmes in the programming period 2007-2013*. Because the values are from 2009, thus they use NUTS 2006 (not 2010), and they refer to the programming period 2007-2013.
+
+NUTS3 has to be translated first, then merging them to NUTS2.
+Do a spatial join of NUTS 2006 centroids to NUTS 2010 polygons, joining the *nuts id* from 2006, and that can be used later on to join the survey results to 2010.
+
+### Question
 
 So when I aggregate level 3 –> level 2, how do I decide how much is a level 2 a border region? Compute percent of border regions within?
 
@@ -180,9 +185,62 @@ test2 <- trust_raw %>%
 ```
 
 
-## Questions
+### Questions
 
 Which variables are needed from the several hundred? Which ones describe the *Trust in government*?
 
 Data/study description?
+
+# Quality of Government
+
+### Questions
+
+Do we need `/QoG/publishing-the-eqi-data2013.xlsx` `sheet:EQI2013` `col: EQI 2013`?
+
+I didn't find indication if it is really using NUTS v2006.
+
+# Structural Funds eligibility 2007-2013, 2014-2020
+
+### Question
+
+Do we need `/SF eligibility/Database of the cumulative allocations to selected projects and expenditure at NUTS2 2007-2013.xlsx` `sheet:DB_NUTS2` `col: Objective`\
+and `/SF eligibility/Regional_policies_and_Europe_2020_RYB2016.xlsx` `sheet:Map1` `col:Class`?
+
+# Unemployment, population at risk of poverty
+
+### Question
+
+Do we need `/Employment and poverty/At-risk-of-poverty rate by NUTS 2 regions Eurostat_Table_tgs00103FlagDesc_58269b17-0d0c-47bb-af35-714d1b24e497.xls` `col:2013` \
+and `/Employment and poverty/Unemployment rates by sex, age and NUTS 2 regions (_) lfst_r_lfu3rt.xls` `col:2013`?
+
+# Educational attainment (tertiary)
+
+### Question
+
+Do we need `/Education/Population aged 25-64 with tertiary education (EUROSTAT) edat_lfse_04.xls` `col:2013`?
+
+# Social progress (Basic Human Needs, Wellbeing, Opportunity)
+
+### Question
+
+Do we need `/Social Progress Index/2016_eu_spi.xlsx` `sheet:Results` `col:European Union Regional Social Progress Index`?
+
+# Population change, net migration
+
+### Question
+
+Do we need `/Migration/Crude rate of net migration plus statistical adjustment demo_r_gind3.xls` `col:2013`?
+
+# Access to social services
+
+### Question
+
+Data is NUTS2 not NUTS3, is is correct?
+
+Do we need `/Access to services/SGI typology.xlsx` `sheet:Sheet1` `col:SGI-aggreg.`?
+
+# Share of population employed in agriculture
+
+Do we need `/Agriculture/htec_emp_reg2.xls` `col:2013`?
+
 
