@@ -93,6 +93,8 @@ This variable will become *regions that **participated** in the core areas of cr
 NUTS3 has to be translated first, then merging them to NUTS2.
 Do a spatial join of NUTS 2006 centroids to NUTS 2010 polygons, joining the *nuts id* from 2006, and that can be used later on to join the survey results to 2010.
 
+
+
 ### Question
 
 So when I aggregate level 3 –> level 2, how do I decide how much is a level 2 a border region? Compute percent of border regions within?
