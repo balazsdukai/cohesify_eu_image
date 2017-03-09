@@ -2,7 +2,7 @@
     nuts_2010_poly2 AS --poly will be the new polygon table
     WITH dump AS(
         SELECT
-            id,
+            gid,
             stat_levl_,
             nuts_id,
             --columns from your multipolygon table 
@@ -13,7 +13,7 @@
             nuts_2010_poly --the name of your multipolygon table
 
     ) SELECT
-        id,
+        gid,
         stat_levl_,
         nuts_id,
         st_makevalid(
@@ -40,7 +40,7 @@ CREATE
     TABLE
         nuts_2010_poly3 AS --poly will be the new polygon table
         SELECT
-            id,
+            gid,
             stat_levl_,
             nuts_id,
             st_makevalid(geom) geom --type cast using SRID from multipolygon
@@ -57,3 +57,11 @@ CREATE
     INDEX nuts_2010_poly3_geom_idx ON
     nuts_2010_poly3
         USING gist(geom);
+        
+        
+
+
+
+
+
+

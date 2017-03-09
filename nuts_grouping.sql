@@ -1,63 +1,49 @@
-﻿drop VIEW nuts_2006_levels;
-
+-- NUTS 2006
+-- simple nuts_id string matchin is much faster than spatial search
 CREATE
     OR REPLACE VIEW nuts_2006_levels AS WITH lvl0 AS(
         SELECT
-            nuts_id,
-            geom
+            nuts_id id0
         FROM
-            nuts_2006_poly2
+            nuts_2006_poly
         WHERE
             stat_levl_ = 0
     ),
     lvl1 AS(
         SELECT
-            nuts_id,
-            geom
+            a.*,
+            b.nuts_id id1
         FROM
-            nuts_2006_poly2
+            lvl0 a
+        JOIN nuts_2006_poly b ON
+            a.id0 = SUBSTRING( b.nuts_id, 1, 2 )
         WHERE
-            stat_levl_ = 1
+            b.stat_levl_ = 1
     ),
     lvl2 AS(
         SELECT
-            nuts_id,
-            geom
+            a.*,
+            b.nuts_id id2
         FROM
-            nuts_2006_poly2
+            lvl1 a
+        JOIN nuts_2006_poly b ON
+            a.id1 = SUBSTRING( b.nuts_id, 1, 3 )
         WHERE
-            stat_levl_ = 2
-    ),
-    lvl3 AS(
-        SELECT
-            nuts_id,
-            geom
-        FROM
-            nuts_2006_poly2
-        WHERE
-            stat_levl_ = 3
+            b.stat_levl_ = 2
     ) SELECT
-        DISTINCT lvl0.nuts_id id0,
-        lvl1.nuts_id id1,
-        lvl2.nuts_id id2,
-        lvl3.nuts_id id3
+        a.*,
+        b.nuts_id id3
     FROM
-        lvl0
-    LEFT JOIN lvl1 ON
-        st_covers(
-            lvl0.geom,
-            lvl1.geom
-        )
-    LEFT JOIN lvl2 ON
-        st_covers(
-            lvl1.geom,
-            lvl2.geom
-        )
-    LEFT JOIN lvl3 ON
-        st_covers(
-            lvl2.geom,
-            lvl3.geom
-        );
+        lvl2 a
+    JOIN nuts_2006_poly b ON
+        a.id2 = SUBSTRING( b.nuts_id, 1, 4 )
+    WHERE
+        b.stat_levl_ = 3
+    ORDER BY
+        a.id0,
+        a.id1,
+        a.id2,
+        b.nuts_id;
 
 -- NUTS 2010
 -- spatial search doesn't work for NUTS2010, because FR91 is not
@@ -106,3 +92,4 @@ CREATE
         a.id1,
         a.id2,
         b.nuts_id;
+        
