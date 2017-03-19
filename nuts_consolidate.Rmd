@@ -316,15 +316,41 @@ typ_border_lvl2_2006 <- nuts_2006_levels %>% select(id2) %>%
 rm(border_lvl2, programme, non_programme, partially_programme)
 ```
 
+```{r border_clean, include=FALSE}
+# Count records
+x_total_cnt <- typ_border_lvl2_2006 %>% 
+    count()
+# Count valid records
+x_2006_cnt <- typ_border_lvl2_2006 %>% 
+    filter(non_programme == 0.0 &
+               programme == 0.0 &
+           partially_programme == 0.0)
+# Remove the records that have 0 for each category, because they correspond to the NUTS2006 codes
+typ_border_lvl2_clean <- typ_border_lvl2_2006 %>% 
+    filter(!(non_programme == 0.0 &
+               programme == 0.0 &
+           partially_programme == 0.0))
+```
+
+```{r border_recode, include=FALSE}
+typ_border_lvl2_encoded <- typ_border_lvl2_clean %>% 
+    mutate(eligibility = case_when(.$non_programme == 1.0 ~ "not eligible",
+                                  .$programme == 1.0 ~ "eligible",
+                                  .$non_programme < 1.0 &
+                                      .$programme < 1.0 ~ "partially"))
+```
+
+
+
 The results look like below:
 
 ```{r, results="asis", echo=FALSE}
-knitr::kable(head(typ_border_lvl2_2006), type = "html", title = "A sample of the translated \' Territorial boundaries á border regions \' variable")
+knitr::kable(head(typ_border_lvl2_encoded), type = "html", title = "A sample of the translated \' Territorial boundaries á border regions \' variable")
 ```
 
 
 ```{r, include=FALSE}
-write.csv(typ_border_lvl2_2006, file = "typ_border_lvl2_2006.csv",
+write.csv(typ_border_lvl2_encoded, file = "./results/typ_border_lvl2_clean.csv",
           row.names = FALSE)
 ```
 
@@ -432,6 +458,11 @@ Which variables are needed from the several hundred? Which ones describe the *Tr
 Data/study description?
 
 # Quality of Government
+
+```{r read_qog, include=FALSE}
+qog_raw <- read.xlsx("~/Data/COHESIFY/Datasets for regression/QoG/publishing-the-eqi-data2013.xlsx", sheetName = "EQI2013", colIndex = c(1,9), startRow = 4, endRow = 251, header = TRUE)
+```
+
 
 ### Questions
 
