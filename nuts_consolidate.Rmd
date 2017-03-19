@@ -251,6 +251,10 @@ CREATE
         nuts2006;
 ```
 
+```{r translation_schema, include=FALSE}
+tr_2006_2010 <- dbReadTable(db, "nuts_translate_2006_2010")
+```
+
 
 #  Territorial typology à border regions
 
@@ -274,12 +278,10 @@ typo_border_regions <- filter(typo_border_regions, typ_border_A != 2009)
 Join the NUTS3 2006 variable to the NUTS2-3 2010 regions using the 2006 <-> 2010 translation schema.
 
 ```{r join_2006_2010, include=FALSE}
-# Load translation schema
-trsl <- dbReadTable(db, "nuts_translate_2006_2010")
 # Join NUTS2-3 2010, NUTS3 2006, typ_border_A
 typo_border_regions <- nuts_2010_levels %>%
     select(id2, id3) %>% 
-    full_join(trsl, by = c("id3" = "nuts2010")) %>% 
+    full_join(tr_2006_2010, by = c("id3" = "nuts2010")) %>% 
     full_join(typo_border_regions, by = c("nuts2006" = "id"))
 ```
 
@@ -354,14 +356,12 @@ write.csv(typ_border_lvl2_encoded, file = "./results/typ_border_lvl2_clean.csv",
           row.names = FALSE)
 ```
 
+```{r clean_up}
+rm(typ_border_lvl2_2006, typ_border_lvl2_clean, typo_border_regions, x_total_cnt, x_2006_cnt)
+```
+
 
 ### Question
-
-So when I aggregate level 3 –> level 2, how do I decide how much is a level 2 a border region? Compute percent of border regions within?
-
-What about "partially" border regions? Would they count as 50%?
-
-NUTS2 regions are not weighted by NUTS3 population, because in case of being a programme region or not it doesn't make sense.
 
 
 # Trust in national government
@@ -439,36 +439,62 @@ nuts_2010_levels_iso <- nuts_2010_levels_iso %>%
     distinct()
 ```
 
-```{r test, include=FALSE}
-t <- trust_raw["isocntry"]
-t <- t %>% filter(isocntry != "AL" & isocntry != "RS")
 
-test <- inner_join(t, nuts_2010_levels_iso, by = c("isocntry" = "iso")) # test join
-
-test2 <- trust_raw %>% 
-    slice(1:20) %>%
-    select(-(q1.1:q1.36)) # these variables duplicate the "isocntry"
+```{r trust_translate, include=FALSE}
+trust_translate <- trust_raw %>% 
+    select(isocntry, qa8a_7) %>% 
+    inner_join(nuts_2010_levels_iso, by = c("isocntry" = "iso")) %>% 
+    distinct()
 ```
 
 
 ### Questions
 
-Which variables are needed from the several hundred? Which ones describe the *Trust in government*?
-
-Data/study description?
 
 # Quality of Government
 
 ```{r read_qog, include=FALSE}
-qog_raw <- read.xlsx("~/Data/COHESIFY/Datasets for regression/QoG/publishing-the-eqi-data2013.xlsx", sheetName = "EQI2013", colIndex = c(1,9), startRow = 4, endRow = 251, header = TRUE)
+qog_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/QoG/publishing-the-eqi-data2013.xlsx",
+    sheetName = "EQI2013", colIndex = c(1,9), startRow = 4, endRow = 251, 
+    header = TRUE, stringsAsFactors = FALSE)
+```
+
+```{r}
+# Get NUTS2 regions of input
+qog_raw_nuts2 <- qog_raw %>% 
+    select(NUTS) %>% 
+    filter(nchar(NUTS) == 4)
+```
+
+Translate NUTS 2006 to 2010.
+
+```{r}
+qog_translate <- nuts_2010_levels %>%
+    select(id2, id3) %>% 
+    full_join(tr_2006_2010, by = c("id3" = "nuts2010")) %>% 
+    full_join(nuts_2006_levels, by = c("nuts2006" = "id3")) %>% 
+    inner_join(qog_raw, by = c("id2.y" = "NUTS")) %>% 
+    select(id2.x, EQI.2013) %>% 
+    distinct()
+```
+
+Compare the translated and the original to check if everything is correct.
+
+```{r check_qog}
+no_match <- full_join(qog_translate, qog_raw_nuts2, by = c("id2.x" = "NUTS")) %>% 
+    filter(is.na(EQI.2013)) %>% 
+    arrange(id2.x)
+```
+
+```{r clean_up_qog}
+rm(no_match, qog_translate, qog_raw, qog_raw_nuts2)
 ```
 
 
 ### Questions
 
-Do we need */QoG/publishing-the-eqi-data2013.xlsx* *sheet:EQI2013* *col: EQI 2013*?
-
-I didn't find indication if it is really using NUTS v2006.
+What's with *HR04*? Its not in 2006 but it is in 2010 and it is not recorded in the NUTS conundrum.
 
 # Structural Funds eligibility 2007-2013, 2014-2020
 
@@ -504,11 +530,40 @@ Do we need */Migration/Crude rate of net migration plus statistical adjustment d
 
 # Access to social services
 
+The record for *Saarland* was missing its NUTS code thus it was manually added.
+
+```{r acc2soc_load, include=FALSE}
+acc2soc_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Access to services/SGI typology.xlsx",
+    sheetIndex = 1, colIndex = c(1,7), startRow = 1, endRow = 287, 
+    header = TRUE, stringsAsFactors = FALSE)
+```
+
+Translate NUTS 2006 to 2010.
+
+```{r}
+acc2soc_translate <- nuts_2010_levels %>%
+    select(id2, id3) %>% 
+    full_join(tr_2006_2010, by = c("id3" = "nuts2010")) %>% 
+    full_join(nuts_2006_levels, by = c("nuts2006" = "id3")) %>% 
+    inner_join(acc2soc_raw, by = c("id2.y" = "NUTS2")) %>% 
+    select(id2.x, SGI.aggreg.) %>% 
+    distinct()
+```
+
+Compare the translated and the original to check if everything is correct.
+
+```{r check_acc2soc}
+no_match <- full_join(acc2soc_translate, acc2soc_raw, by = c("id2.x" = "NUTS2")) %>%
+    select(id2.x, SGI.aggreg..x) %>% 
+    filter(is.na(SGI.aggreg..x)) %>% 
+    arrange(id2.x)
+```
+
+
+
 ### Question
 
-Data is NUTS2 not NUTS3, is is correct?
-
-Do we need */Access to services/SGI typology.xlsx* *sheet:Sheet1* *col:SGI-aggreg.*?
 
 # Share of population employed in agriculture
 
