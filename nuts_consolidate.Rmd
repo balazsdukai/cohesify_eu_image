@@ -873,33 +873,31 @@ The record for *Saarland* was missing its NUTS code thus it was manually added.
 acc2soc_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Access to services/SGI typology.xlsx",
     sheetIndex = 1, colIndex = c(1,7), startRow = 1, endRow = 287, 
-    header = TRUE, stringsAsFactors = FALSE)
+    header = TRUE, stringsAsFactors = FALSE) %>% 
+    rename(nuts_2006 = NUTS2, sgi_aggregated = SGI.aggreg.)
 ```
 
 Translate NUTS 2006 to 2010.
 
-```{r}
-acc2soc_translate <- nuts_2010_levels %>%
-    select(id2, id3) %>% 
-    full_join(tr_2006_2010, by = c("id3" = "nuts2010")) %>% 
-    full_join(nuts_2006_levels, by = c("nuts2006" = "id3")) %>% 
-    inner_join(acc2soc_raw, by = c("id2.y" = "NUTS2")) %>% 
-    select(id2.x, SGI.aggreg.) %>% 
+```{r acc2soc_tranlate, include=FALSE}
+acc2soc_translate <- acc2soc_raw %>% 
+    inner_join(tr_2006_2010, by = c("nuts_2006" = "id2.2006")) %>% 
+    rename(id2.2006 = nuts_2006) %>% 
+    select(id2.2010, sgi_aggregated) %>% 
+    distinct() %>% 
+    mutate(x = substr(id2.2010, 0, 2)) %>% 
+    inner_join(eu_members, by = c("x" = "id0"))
+```
+
+Compare the translated and the original to check if everything is correct. Croatia (*HR*) is not present in the data.
+
+```{r check_acc2soc, include=FALSE}
+# Check if all EU members are present, should give 28
+acc2soc_translate %>%
+    mutate(x = substr(id2.2010, 0, 2)) %>% 
+    select(x) %>% 
     distinct()
 ```
-
-Compare the translated and the original to check if everything is correct.
-
-```{r check_acc2soc}
-no_match <- full_join(acc2soc_translate, acc2soc_raw, by = c("id2.x" = "NUTS2")) %>%
-    select(id2.x, SGI.aggreg..x) %>% 
-    filter(is.na(SGI.aggreg..x)) %>% 
-    arrange(id2.x)
-```
-
-
-
-### Question
 
 
 # Share of population employed in agriculture
