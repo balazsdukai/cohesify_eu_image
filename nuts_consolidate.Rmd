@@ -406,6 +406,16 @@ tr_2010_2013 <- nuts_2013_levels %>%
 rm(tbl_2013)
 ```
 
+## EU member states
+
+```{r eu_members}
+eu_members <- data.frame(id0 = c("AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE",
+                                 "FI", "FR", "DE", "EL", "HU", "IE", "IT", "LV",
+                                 "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SE",
+                                 "SI", "SK", "ES", "UK"),
+                         stringsAsFactors = FALSE)
+```
+
 
 # Territorial typology à border regions
 
@@ -698,7 +708,7 @@ pov_raw <- read.xlsx(
 names(pov_raw) <- c("nuts_2010", "poverty_2013")
 ```
 
-The coverage is heterogenous, some countries have NUTS2 level poverty values, while others are aggregae to NUTS0 level.
+The coverage is heterogenous, some countries have NUTS2 level poverty values, while others are aggregae to NUTS0 level. The poverty values on NUTS0 level are the weighted average of the poverty values of the lower level NUTS regions, if these values exists.
 
 ```{r pov_prep, include=FALSE}
 pov_lvl0 <- pov_raw %>% filter(nchar(nuts_2010) == 2) %>% 
@@ -708,17 +718,20 @@ pov_lvl1 <- pov_raw %>% filter(nchar(nuts_2010) == 3) %>%
     rename(id1 = nuts_2010)
 pov_lvl2 <- pov_raw %>% filter(nchar(nuts_2010) == 4) %>% 
     mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
-    rename(id2 = nuts_2010)
+    rename(id2 = nuts_2010) %>% 
+    inner_join(eu_members, by = "id0")
 
-pov_nuts2 <- pov_lvl0 %>% 
+pov_all <- pov_lvl0 %>% 
     full_join(pov_lvl1, by = "id0", suffix = c(".id0", ".id1")) %>% 
     full_join(pov_lvl2, by = "id0") %>% 
-    rename(poverty_2013.id2 = poverty_2013)
+    rename(poverty_2013.id2 = poverty_2013) %>% 
+    inner_join(eu_members, by = "id0") %>%
+    arrange(id0)
 
 # The list of countries that have only NUTS0 level poverty values
-pov_cntry <- pov_nuts2 %>% 
-    filter(is.na(poverty_2013.id2) & is.na(poverty_2013.id1)) %>% 
-    select(id0) %>% 
+pov_cntry <- pov_all %>% 
+    filter(is.na(poverty_2013.id2) & is.na(poverty_2013.id1)) %>%
+    select(id0, poverty_2013.id0) %>% 
     distinct()
 ```
 
@@ -728,6 +741,26 @@ Countries that have only NUTS0 level poverty values:
 pov_cntry$id0
 ```
 
+Combine everything and input country average for the missing values in Finland.
+
+```{r pov_combine, include=FALSE}
+pov_nuts2 <- pov_cntry %>% 
+    inner_join(nuts_2010_levels, by = "id0") %>% 
+    select(id2, poverty_2013.id0) %>% 
+    rename(poverty_2013 = poverty_2013.id0) %>% 
+    distinct() %>% 
+    bind_rows(select(pov_lvl2, id2, poverty_2013)) %>% 
+    arrange(id2)
+
+# input country average for the missing values in Finland
+pov_nuts2[substr(pov_nuts2$id2, 0, 2) == "FI" & is.na(pov_nuts2$poverty_2013),
+          "poverty_2013"] <- pov_lvl0[pov_lvl0$id0 == "FI", "poverty_2013"]
+```
+
+
+### Question
+
+Finland has missing values in some NUTS2 region, country average was inputed.
 
 ## Unemployment
 
