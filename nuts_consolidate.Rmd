@@ -47,7 +47,7 @@ Spatial data of the NUTS administrative boundaries are obtained from EuroGeograp
 
 Load shapefile into database. 
 
-```{bash shp2pgsql_2006, echo=FALSE, include=FALSE}
+```{bash shp2pgsql_2006, echo=FALSE, include=FALSE, eval=FALSE}
 shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2006_03M_SH/shape/data/NUTS_RG_03M_2006 public.nuts_2006_poly | psql -h localhost -d nuts -U bdukai
 ```
 
@@ -131,7 +131,7 @@ CREATE
 
 The level-relations are derived from the region's names, because *FR91* (a colonial island) is not covered by higher level regions, thus spatial search misses it.
 
-```{bash shp2pgsql_2010, echo=FALSE, include=FALSE}
+```{bash shp2pgsql_2010, echo=FALSE, include=FALSE, eval=FALSE}
 shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2010_03M_SH/Data/NUTS_RG_03M_2010 public.nuts_2010_poly | psql -h localhost -d nuts -U bdukai
 ```
 
@@ -214,7 +214,7 @@ The countries that are not included in the Excel sheet `/NUTS conundrum/2006-201
 
 ## Version 2013
 
-```{bash shp2pgsql_2013, echo=FALSE, include=FALSE}
+```{bash shp2pgsql_2013, echo=FALSE, include=FALSE, eval=FALSE}
 shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2013_03M_SH/data/NUTS_RG_03M_2013 public.nuts_2013_poly | psql -h localhost -d nuts -U bdukai
 ```
 
@@ -341,7 +341,15 @@ CREATE
 ```
 
 ```{r translation_schema, include=FALSE}
-tr_2006_2010 <- dbReadTable(db, "nuts_translate_2006_2010")
+tbl_2010 <- dbReadTable(db, "nuts_translate_2006_2010")
+
+tr_2006_2010 <- nuts_2010_levels %>%
+    inner_join(tbl_2010, by = c("id3" = "nuts2010")) %>% 
+    full_join(nuts_2006_levels, by = c("nuts2006" = "id3"),
+              suffix = c(".2010", ".2006")) %>% 
+    rename(id3.2010 = id3, id3.2006 = nuts2006)
+
+rm(tbl_2010)
 ```
 
 ## Translate 2010 <-> 2013
@@ -399,7 +407,7 @@ rm(tbl_2013)
 ```
 
 
-#  Territorial typology à border regions
+# Territorial typology à border regions
 
 *As described in Regional Focus No. 1/2011. The NUTS 3-based selection of border regions refers to the regions participating in the core areas of cross-border cooperation programmes in the programming period 2007-2013. Due to NUTS boundary changes, some current NUTS 3 regions are only partly eligible as programme areas. More information on how to apply the typology can be found in the guidance note.*
 
@@ -587,7 +595,9 @@ nuts_2010_levels_iso <- nuts_2010_levels_iso %>%
 trust_translate <- trust_raw %>% 
     select(isocntry, qa8a_7) %>% 
     inner_join(nuts_2010_levels_iso, by = c("isocntry" = "iso")) %>% 
-    distinct()
+    distinct() %>% 
+    select(id2, qa8a_7) %>% 
+    rename(trust_gov = qa8a_7)
 ```
 
 
@@ -596,39 +606,65 @@ trust_translate <- trust_raw %>%
 
 # Quality of Government
 
+Source: THE QOG EU REGIONAL DATASET 2016
+
+*Charron, Nicholas, Stefan Dahlberg, Sören Holmberg, Bo Rothstein, Anna Khomenko & Richard Svensson. 2016. The Quality of Government EU Regional Dataset, version Sep16. University of Gothenburg: The Quality of Government Institute, http://www.qog.pol.gu.se*
+
+*Charron, Nicholas, Lewis Dijkstra and Victor Lapuente. 2015. Mapping the Regional Divide in Europe: A Measure for Assessing Quality of Government in 206 European Regions. Social Indicators Research. vol 122 (2): 315-346.*
+
+*Charron, Nicholas, Lewis Dijkstra and Victor Lapuente. 2014. Regional Governance Matters: Quality of Government within European Union Member States. Regional Studies, 48(1): 68-90.*
+
+*Charron, Nicholas, Victor Lapuente and Bo Rothstein. 2013. Quality of Government and Corruption from a European Perspective: A Comparative Study of Good Government in EU Regions. Edward Elgar Publishing.*
+
+Date of access: 2016-04-25\
+Nomenclature: NUTS 2006 level 2
+
+Variable description (*eqi_eqi*):
+
+*The European Quality of Government Index - the overall EQI regional estimates. The final regional index was the result of aggregating the scores for the three pillars for each region. To calculate the final score for each country and region, the regional scores for each of the countries included in the 2013 survey were aggregated by regional population weights. This national average of regional scores is used to elucidate the extent to which regionx in country conforms to the national QoG standard, which is done by subtracting the national average from each region's score. A positive score for a region implies that it is above the national mean; conversely, a negative score indicates that the regions QoG performance is below the national mean. In the final index, this regional score is added to the national WGI score, so that each region's score is adjusted; centered around the WGI. In combining the regional and WGI data, none of the regional variation within countries is lost.*
+
+
 ```{r read_qog, include=FALSE}
 qog_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/QoG/publishing-the-eqi-data2013.xlsx",
     sheetName = "EQI2013", colIndex = c(1,9), startRow = 4, endRow = 251, 
-    header = TRUE, stringsAsFactors = FALSE)
+    header = TRUE, stringsAsFactors = FALSE) %>% 
+    rename(nuts_2006 = NUTS, eqi_2013 = EQI.2013)
 ```
 
-```{r}
+```{r qog_nuts2, include=FALSE}
 # Get NUTS2 regions of input
 qog_raw_nuts2 <- qog_raw %>% 
-    select(NUTS) %>% 
-    filter(nchar(NUTS) == 4)
+    select(nuts_2006) %>% 
+    filter(nchar(nuts_2006) == 4)
 ```
 
 Translate NUTS 2006 to 2010.
 
-```{r}
-qog_translate <- nuts_2010_levels %>%
-    select(id2, id3) %>% 
-    full_join(tr_2006_2010, by = c("id3" = "nuts2010")) %>% 
-    full_join(nuts_2006_levels, by = c("nuts2006" = "id3")) %>% 
-    inner_join(qog_raw, by = c("id2.y" = "NUTS")) %>% 
-    select(id2.x, EQI.2013) %>% 
+```{r qog_translate, include=FALSE}
+qog_translate <- qog_raw %>% 
+    filter(nchar(nuts_2006) >= 4) %>% 
+    inner_join(tr_2006_2010, by = c("nuts_2006" = "id2.2006")) %>%
+    rename(id2.2006 = nuts_2006) %>% 
+    select(id2.2010, eqi_2013) %>% 
     distinct()
 ```
 
-Compare the translated and the original to check if everything is correct.
+The comparison of the translated to the original reveals that the *EQI 2013* variables in fact use a mix of NTUS 2006/2010 regions, because *HR* is already mapped as NUTS 2010, while the rest of the countries as 2006.
 
 ```{r check_qog}
-no_match <- full_join(qog_translate, qog_raw_nuts2, by = c("id2.x" = "NUTS")) %>% 
-    filter(is.na(EQI.2013)) %>% 
-    arrange(id2.x)
+no_match <- full_join(qog_translate, qog_raw_nuts2,
+                      by = c("id2.2006" = "nuts_2006")) %>% 
+    filter(is.na(eqi_2013)) %>% 
+    arrange(id2.2006)
 ```
+
+The error is corrected by manually assigning the value to *HR04*.
+
+```{r correct_qog, include=FALSE}
+qog_translate[qog_translate$id2.2010 == "HR04", "eqi_2013"] <- qog_raw[qog_raw$nuts_2006 == "HR04", "eqi_2013"]
+```
+
 
 ```{r clean_up_qog}
 rm(no_match, qog_translate, qog_raw, qog_raw_nuts2)
@@ -636,8 +672,6 @@ rm(no_match, qog_translate, qog_raw, qog_raw_nuts2)
 
 
 ### Questions
-
-What's with *HR04*? Its not in 2006 but it is in 2010 and it is not recorded in the NUTS conundrum.
 
 # Structural Funds eligibility 2007-2013, 2014-2020
 
@@ -724,9 +758,10 @@ unemp_translate <- unemp_raw %>%
 
 Population aged 25-64 with tertiary education, NUTS 2 regions (%) [edat_lfse_04].
 
-Source: Eurostat
-Last update: 2016-10-13
-Date of access: 2016-12-04
+Source: Eurostat\
+Last update: 2016-10-13\
+Date of access: 2016-12-04\
+Nomenclature: NUTS 2013 level 3
 
 ```{r edu_load, include=FALSE}
 edu_raw <- read.xlsx(
@@ -758,6 +793,38 @@ Do we need */Education/Population aged 25-64 with tertiary education (EUROSTAT) 
 Do we need */Social Progress Index/2016_eu_spi.xlsx* *sheet:Results* *col:European Union Regional Social Progress Index*?
 
 # Population change, net migration
+
+Population change - Demographic balance and crude rates at regional level (NUTS 3) [demo_r_gind3]
+
+Source: Eurostat\
+Last update: 2016-10-28\
+Date of access: 2016-12-04\
+Nomenclature: NUTS 2010 level 3
+
+```{r migr_load, include=FALSE}
+migr_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Migration/Crude rate of net migration plus statistical adjustment demo_r_gind3.xls",
+    sheetIndex = 1, colIndex = c(1,4), startRow = 9, endRow = 2119, 
+    header = TRUE, stringsAsFactors = FALSE, colClasses = c("character", "numeric"))
+names(migr_raw) <- c("nuts_2010", "migration_2013")
+```
+
+```{r migr_prep, include=FALSE}
+migr_prep <- migr_raw %>% 
+    filter(nchar(nuts_2010) == 4)
+```
+
+
+Translate NUTS 2013 to 2010.
+
+```{r migr_translate, include=FALSE}
+migr_translate <- migr_raw %>%
+    filter(nchar(nuts_2013) >= 4) %>% 
+    inner_join(tr_2010_2013, by = c("nuts_2010" = "id2.2013")) %>% 
+    select(id2.2010, migration_2013) %>% 
+    distinct()
+```
+
 
 ### Question
 
