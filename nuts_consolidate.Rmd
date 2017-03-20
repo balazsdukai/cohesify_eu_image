@@ -521,10 +521,6 @@ write.csv(typ_border_lvl2_encoded, file = "./results/typ_border_lvl2_clean.csv",
 rm(typ_border_lvl2_2006, typ_border_lvl2_clean, typo_border_regions, x_total_cnt, x_2006_cnt)
 ```
 
-
-### Question
-
-
 # Trust in national government
 
 ```{r read_trust, include=FALSE}
@@ -610,10 +606,6 @@ trust_translate <- trust_raw %>%
     rename(trust_gov = qa8a_7)
 ```
 
-
-### Questions
-
-
 # Quality of Government
 
 Source: THE QOG EU REGIONAL DATASET 2016
@@ -679,9 +671,6 @@ qog_translate[qog_translate$id2.2010 == "HR04", "eqi_2013"] <- qog_raw[qog_raw$n
 ```{r clean_up_qog}
 rm(no_match, qog_translate, qog_raw, qog_raw_nuts2)
 ```
-
-
-### Questions
 
 # Structural Funds eligibility 2007-2013, 2014-2020
 
@@ -784,8 +773,6 @@ unemp_translate <- unemp_raw %>%
     distinct()
 ```
 
-## Question
-
 
 # Educational attainment (tertiary)
 
@@ -814,11 +801,6 @@ edu_translate <- edu_raw %>%
     distinct()
 ```
 
-
-### Question
-
-Do we need */Education/Population aged 25-64 with tertiary education (EUROSTAT) edat_lfse_04.xls* *col:2013*?
-
 # Social progress (Basic Human Needs, Wellbeing, Opportunity)
 
 ### Question
@@ -832,7 +814,7 @@ Population change - Demographic balance and crude rates at regional level (NUTS 
 Source: Eurostat\
 Last update: 2016-10-28\
 Date of access: 2016-12-04\
-Nomenclature: NUTS 2010 level 3
+Nomenclature: NUTS 2010/2013 level 3
 
 ```{r migr_load, include=FALSE}
 migr_raw <- read.xlsx(
@@ -844,24 +826,44 @@ names(migr_raw) <- c("nuts_2010", "migration_2013")
 
 ```{r migr_prep, include=FALSE}
 migr_prep <- migr_raw %>% 
-    filter(nchar(nuts_2010) == 4)
+    filter(nchar(nuts_2010) == 4) %>% 
+    mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    select(-id0)
+
+# The 2013 regions that in the data but are not NUTS 2010 regions
+n2013 <- migr_prep %>% 
+    full_join(nuts_2010_levels, by = c("nuts_2010" = "id2")) %>% 
+    select(-id3) %>% 
+    distinct() %>% 
+    filter(is.na(id0))
+
+# The 2010 regions that are in the data but are not NUTS 2013 regions
+n2010 <- migr_prep %>% 
+    full_join(nuts_2013_levels, by = c("nuts_2010" = "id2")) %>% 
+    select(-id3) %>% 
+    distinct() %>% 
+    filter(is.na(id0))
+
+# Put it together and filter out 2013 regions
+migr_clean <- migr_prep %>%
+    filter(!(nuts_2010 %in% n2013$nuts_2010)) %>% 
+    arrange(nuts_2010) %>% 
+    rename(id2 = nuts_2010)
+```
+
+```{r migr_check, include=FALSE}
+# Check if all EU members are present, should give 28
+migr_clean %>%
+    mutate(x = substr(id2, 0, 2)) %>% 
+    select(x) %>% 
+    n_distinct()
 ```
 
 
-Translate NUTS 2013 to 2010.
+The data set uses a NUTS 2010 nomenclature but still the NUTS1 regions *EL5* and *EL6* are present, duplicating the values of their corresponding NUTS 2010 regions (*EL1* and *EL2*). Therefore *EL5* and *EL6* are removed.
 
-```{r migr_translate, include=FALSE}
-migr_translate <- migr_raw %>%
-    filter(nchar(nuts_2013) >= 4) %>% 
-    inner_join(tr_2010_2013, by = c("nuts_2010" = "id2.2013")) %>% 
-    select(id2.2010, migration_2013) %>% 
-    distinct()
-```
-
-
-### Question
-
-Do we need */Migration/Crude rate of net migration plus statistical adjustment demo_r_gind3.xls* *col:2013*?
+Similarly in case of France, the NUTS 2010 regions *FR91, FR92, FR93, FR94* are present, and also their corresponding NUTS 2013 versions *FRA2, FRA3, FRA4*, while *FRA1, FRA5* is missing value. The NUTS 2013 regions present novel data compared to their 2010 version. Because the majority of the data correspond to NUTS 2010 regions, the NUTS 2013 regions of France are removed.
 
 # Access to social services
 
