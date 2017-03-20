@@ -14,10 +14,10 @@ papersize: a4paper
 ---
 
 ```{r setup, echo=FALSE, include=FALSE}
-library(tidyverse)
 library(haven)
 library(xlsx)
 library(RPostgreSQL)
+library(tidyverse)
 db <- dbConnect(RPostgreSQL::PostgreSQL(), dbname = "nuts", user="bdukai", host="localhost")
 knitr::opts_chunk$set(connection = "db")
 ```
@@ -207,6 +207,90 @@ CREATE
 
 The countries that are not included in the Excel sheet `/NUTS conundrum/2006-2010.xlsx` but included in the shapefile are *"CH" "IS" "TR" "LI" "NO" "ME" "MK" "HR"*.
 
+## Version 2013
+
+```{bash shp2pgsql_2013, echo=FALSE, include=FALSE}
+shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2013_03M_SH/data/NUTS_RG_03M_2013 public.nuts_2013_poly | psql -h localhost -d nuts -U bdukai
+```
+
+Generate ID levels for NUTS 2013.
+
+```{sql connection=db, include=FALSE}
+CREATE
+    OR REPLACE VIEW nuts_2013_levels AS WITH lvl0 AS(
+        SELECT
+            nuts_id id0
+        FROM
+            nuts_2013_poly
+        WHERE
+            stat_levl_ = 0
+    ),
+    lvl1 AS(
+        SELECT
+            a.*,
+            b.nuts_id id1
+        FROM
+            lvl0 a
+        JOIN nuts_2013_poly b ON
+            a.id0 = SUBSTRING( b.nuts_id, 1, 2 )
+        WHERE
+            b.stat_levl_ = 1
+    ),
+    lvl2 AS(
+        SELECT
+            a.*,
+            b.nuts_id id2
+        FROM
+            lvl1 a
+        JOIN nuts_2013_poly b ON
+            a.id1 = SUBSTRING( b.nuts_id, 1, 3 )
+        WHERE
+            b.stat_levl_ = 2
+    ) SELECT
+        a.*,
+        b.nuts_id id3
+    FROM
+        lvl2 a
+    JOIN nuts_2013_poly b ON
+        a.id2 = SUBSTRING( b.nuts_id, 1, 4 )
+    WHERE
+        b.stat_levl_ = 3
+    ORDER BY
+        a.id0,
+        a.id1,
+        a.id2,
+        b.nuts_id;
+```
+
+Generate point in the regions for version translation. 
+
+```{sql connection=db, include=FALSE}
+CREATE
+    TABLE
+        IF NOT EXISTS nuts_2013_pt AS SELECT
+            gid,
+            nuts_id,
+            stat_levl_,
+            st_pointonsurface(geom) geom
+        FROM
+            nuts_2013_poly;
+
+ALTER TABLE
+    nuts_2013_pt ADD PRIMARY KEY(gid);
+
+CREATE
+    INDEX nuts_2013_pt_geom_idx ON
+    nuts_2013_pt
+        USING gist(geom);
+```
+
+Get the view.
+
+```{r nuts_2013, include=FALSE}
+nuts_2013_levels <- dbReadTable(db, "nuts_2013_levels")
+```
+
+
 ## Translate 2006 <-> 2010
 
 NUTS3 regions are translated from version 2006 to 2010 by using a two-step spatial search. Firstly, the 2010 regions that were *merged* from 2006 to 2010 are spatially matched to 2006 regions, secondly the 2006 regions that were *split* from 2006 to 2010 are spatially matched to 2010 regions. Name changes and boundary shifts are also detected in the process. 
@@ -253,6 +337,60 @@ CREATE
 
 ```{r translation_schema, include=FALSE}
 tr_2006_2010 <- dbReadTable(db, "nuts_translate_2006_2010")
+```
+
+## Translate 2010 <-> 2013
+
+```{sql connection=db, include=FALSE}
+CREATE
+    OR replace VIEW nuts_translate_2010_2013 AS WITH nuts_match AS(
+        -- case of merge in version 2010
+        SELECT
+            a.nuts_id nuts2010,
+            b.nuts_id nuts2013
+        FROM
+            nuts_2010_pt a
+        JOIN nuts_2013_poly b ON
+            st_within(
+                a.geom,
+                b.geom
+            )
+        WHERE
+            b.stat_levl_ = 3
+            AND a.stat_levl_ = 3
+    UNION
+        -- case of split in version 2010
+        SELECT
+            b.nuts_id nuts2010,
+            a.nuts_id nuts2013
+        FROM
+            nuts_2013_pt a
+        JOIN nuts_2010_poly b ON
+            st_within(
+                a.geom,
+                b.geom
+            )
+        WHERE
+            b.stat_levl_ = 3
+            AND a.stat_levl_ = 3
+    ) SELECT
+        *
+    FROM
+        nuts_match
+    ORDER BY
+        nuts2010;
+```
+
+```{r translation_schema_2013, include=FALSE}
+tbl_2013 <- dbReadTable(db, "nuts_translate_2010_2013")
+
+tr_2010_2013 <- nuts_2013_levels %>%
+    inner_join(tbl_2013, by = c("id3" = "nuts2013")) %>% 
+    full_join(nuts_2010_levels, by = c("nuts2010" = "id3"),
+              suffix = c(".2013", ".2010")) %>% 
+    rename(id3.2013 = id3, id3.2010 = nuts2010)
+
+rm(tbl_2013)
 ```
 
 
@@ -505,10 +643,71 @@ and */SF eligibility/Regional_policies_and_Europe_2020_RYB2016.xlsx* *sheet:Map1
 
 # Unemployment, population at risk of poverty
 
+## Poverty
+
+```{r pov_load, include=FALSE}
+pov_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Employment and poverty/At-risk-of-poverty rate by NUTS 2 regions Eurostat_Table_tgs00103FlagDesc_58269b17-0d0c-47bb-af35-714d1b24e497.xls",
+    sheetIndex = 1, colIndex = c(1,14), startRow = 3, endRow = 184, 
+    header = TRUE, stringsAsFactors = FALSE, colClasses = c("character", "numeric"))
+names(pov_raw) <- c("nuts_2010", "poverty_2013")
+```
+
+The coverage is homogenous, some countries have NUTS2 level poverty values, while others are aggregae to NUTS0 level.
+
+```{r pov_prep, include=FALSE}
+pov_lvl0 <- pov_raw %>% filter(nchar(nuts_2010) == 2) %>% 
+    rename(id0 = nuts_2010)
+pov_lvl1 <- pov_raw %>% filter(nchar(nuts_2010) == 3) %>% 
+    mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
+    rename(id1 = nuts_2010)
+pov_lvl2 <- pov_raw %>% filter(nchar(nuts_2010) == 4) %>% 
+    mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
+    rename(id2 = nuts_2010)
+
+pov_nuts2 <- pov_lvl0 %>% 
+    full_join(pov_lvl1, by = "id0", suffix = c(".id0", ".id1")) %>% 
+    full_join(pov_lvl2, by = "id0") %>% 
+    rename(poverty_2013.id2 = poverty_2013)
+
+# The list of countries that have only NUTS0 level poverty values
+pov_cntry <- pov_nuts2 %>% 
+    filter(is.na(poverty_2013.id2) & is.na(poverty_2013.id1)) %>% 
+    select(id0) %>% 
+    distinct()
+```
+
+Countries that have only NUTS0 level poverty values:
+
+```{r,echo=FALSE}
+pov_cntry$id0
+```
+
+
+## Unemployment
+
+Unemployment rate of persons aged 15-74.
+
+```{r unemp_load, include=FALSE}
+unemp_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Employment and poverty/Unemployment rates by sex, age and NUTS 2 regions (_) lfst_r_lfu3rt.xls",
+    sheetIndex = 1, colIndex = c(1,4), startRow = 11, endRow = 502, 
+    header = TRUE, stringsAsFactors = FALSE, colClasses = c("character", "numeric"))
+names(unemp_raw) <- c("nuts_2013", "unemployment_2013")
+```
+
+Translate NUTS 2013 to 2010.
+
+```{r unemp_translate, include=FALSE}
+unemp_translate <- unemp_raw %>%
+    filter(nchar(nuts_2013) >= 4) %>% 
+    inner_join(tr_2010_2013, by = c("nuts_2013" = "id2.2013")) %>% 
+    select(id2.2010, unemployment_2013) %>% 
+    distinct()
+```
+
 ### Question
 
-Do we need */Employment and poverty/At-risk-of-poverty rate by NUTS 2 regions Eurostat_Table_tgs00103FlagDesc_58269b17-0d0c-47bb-af35-714d1b24e497.xls* *col:2013* \
-and */Employment and poverty/Unemployment rates by sex, age and NUTS 2 regions (_) lfst_r_lfu3rt.xls* *col:2013*?
 
 # Educational attainment (tertiary)
 
