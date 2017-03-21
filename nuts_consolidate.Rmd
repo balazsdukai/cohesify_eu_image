@@ -674,10 +674,33 @@ rm(no_match, qog_translate, qog_raw, qog_raw_nuts2)
 
 # Structural Funds eligibility 2007-2013, 2014-2020
 
+```{r read_struct, include=FALSE}
+struct_raw_2007 <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/SF eligibility/Database of the cumulative allocations to selected projects and expenditure at NUTS2 2007-2013.xlsx",
+    sheetIndex = 1, colIndex = c(4,7), startRow = 1, endRow = 17208, 
+    header = TRUE, stringsAsFactors = FALSE) %>% 
+    rename(nuts_2010 = Location.Cd, class = Objective)
+struct_raw_2014 <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/SF eligibility/Regional_policies_and_Europe_2020_RYB2016.xlsx",
+    sheetIndex = 1, colIndex = c(1,4), startRow = 1, endRow = 287, 
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(nuts_2010 = NUTS, class = Class)
+```
+
+```{r struct_prep, include=FALSE}
+struct_2007_prep <- struct_raw_2007 %>% 
+    select(nuts_2010, class) %>% 
+    distinct() %>% 
+    arrange(nuts_2010)
+```
+
 ### Question
 
-Do we need */SF eligibility/Database of the cumulative allocations to selected projects and expenditure at NUTS2 2007-2013.xlsx* *sheet:DB_NUTS2* *col: Objective*\
-and */SF eligibility/Regional_policies_and_Europe_2020_RYB2016.xlsx* *sheet:Map1* *col:Class*?
+Do we need */SF eligibility/Database of the cumulative allocations to selected projects and expenditure at NUTS2 2007-2013.xlsx* *sheet:DB_NUTS2* *col: Objective*?\
+What are the programe codes? Which are relevant?
+
+This */SF eligibility/Regional_policies_and_Europe_2020_RYB2016.xlsx* *sheet:Map1* *col:Class*?
 
 # Unemployment, population at risk of poverty
 
@@ -803,9 +826,16 @@ edu_translate <- edu_raw %>%
 
 # Social progress (Basic Human Needs, Wellbeing, Opportunity)
 
-### Question
+```{r soc_load, include=FALSE}
+soc_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Social Progress Index/2016_eu_spi.xlsx",
+    sheetIndex = 1, colIndex = c(1,4), startRow = 1, endRow = 273, 
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(nuts_2010 = NUTS.Code.2010,
+           soc_idx = European.Union.Regional.Social.Progress.Index)
+```
 
-Do we need */Social Progress Index/2016_eu_spi.xlsx* *sheet:Results* *col:European Union Regional Social Progress Index*?
 
 # Population change, net migration
 
@@ -902,6 +932,70 @@ acc2soc_translate %>%
 
 # Share of population employed in agriculture
 
-Do we need */Agriculture/htec_emp_reg2.xls* *col:2013*?
+Agriculture, forestry and fishing; mining and quarrying\
+Percentage of total employment
 
 
+```{r agr_load, include=FALSE}
+agr_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Agriculture/htec_emp_reg2.xls",
+    sheetIndex = 1, colIndex = c(1,7), startRow = 1442, endRow = 1910, 
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(x = GEO.TIME,
+           agr_share = X2013)
+```
+
+```{r agr_prep, include=FALSE}
+agr_clean <- agr_raw
+agr_clean$nuts_2010 <- unlist(lapply(strsplit(agr_raw$x, " "), function(x) x[1]))
+agr_clean <- agr_clean %>% select(-x)
+
+agr_lvl0 <- agr_clean %>% filter(nchar(nuts_2010) == 2) %>% 
+    rename(id0 = nuts_2010)
+agr_lvl1 <- agr_clean %>% filter(nchar(nuts_2010) == 3) %>% 
+    mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
+    rename(id1 = nuts_2010)
+agr_lvl2 <- agr_clean %>% filter(nchar(nuts_2010) == 4) %>% 
+    mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
+    mutate(id1 = substr(nuts_2010, 0, 3)) %>% 
+    rename(id2 = nuts_2010)
+
+agr_all <- agr_lvl0 %>% 
+    full_join(agr_lvl1, by = "id0", suffix = c(".id0", ".id1")) %>% 
+    full_join(agr_lvl2, by = "id1") %>% 
+    rename(agr_share.id2 = agr_share, id0 = id0.x) %>% 
+    select(-id0.y) %>%
+    inner_join(eu_members, by = "id0") %>% 
+    arrange(id0)
+
+# Input country average to missing NUTS2 values
+missing <- agr_all %>% filter(is.na(agr_share.id2))
+
+for (r in missing$id2) {
+    # if NUTS1 value missing
+    if (is.na(agr_all[agr_all$id2 == r, "agr_share.id1"])) {
+        agr_all[agr_all$id2 == r,
+                "agr_share.id2"] <- agr_all[agr_all$id2 == r, "agr_share.id0"]
+    } else {
+    # NUTS1 value present
+        agr_all[agr_all$id2 == r,
+                "agr_share.id2"] <- agr_all[agr_all$id2 == r, "agr_share.id1"]
+    }
+}
+
+agr_clean <- agr_all %>%
+    select(id2, agr_share.id2) %>% 
+    rename(agr_share = agr_share.id2)
+```
+
+The NUTS2 regions below are missing values. For these regions the corresponding NUTS1 value is inputed if available, otherwise the corresponding NUTS0 value.
+
+```{r agr_missing_table, results='asis', echo=FALSE}
+knitr::kable(missing, caption = "NUTS2 regions with missing agriculture index values")
+```
+
+
+### Question
+
+Is the correct section read in?
