@@ -3,17 +3,19 @@ title: "Consolidating regression variables for EU identity inference"
 author: "Balázs Dukai (<balazs.dukai@gmail.com>)"
 date: '`r format(Sys.Date(), "%B %d, %Y")`'
 output:
+  html_document: default
+  html_notebook:
+    number_sections: yes
+    toc: yes
   pdf_document:
     number_sections: yes
     toc: yes
-  html_notebook: default
-  html_document: default
 subtitle: COHESIFY - The Impact of Cohesion Policy on EU Identification and is part
   of Horizon 2020 programme
 papersize: a4paper
 ---
 
-```{r setup, echo=FALSE, include=FALSE}
+```{r setup, echo=FALSE, include=TRUE}
 library(haven)
 library(xlsx)
 library(RPostgreSQL)
@@ -25,11 +27,6 @@ knitr::opts_chunk$set(connection = "db")
 \pagebreak
 
 In this notebook I am consolidating the independent variables to NUTS level 2, version 2010.
-
-# TODO
-
-+ filter non-EU countries from all data sets
-+ weight relevant variables by population from 2010
 
 # NUTS
 
@@ -47,13 +44,13 @@ Spatial data of the NUTS administrative boundaries are obtained from EuroGeograp
 
 Load shapefile into database. 
 
-```{bash shp2pgsql_2006, echo=FALSE, include=FALSE, eval=FALSE}
+```{bash shp2pgsql_2006, echo=FALSE, include=TRUE, eval=FALSE}
 shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2006_03M_SH/shape/data/NUTS_RG_03M_2006 public.nuts_2006_poly | psql -h localhost -d nuts -U bdukai
 ```
 
 Generate ID hieararchy based on NUTS levels.
 
-```{sql connection=db, include=FALSE}
+```{sql connection=db, include=TRUE}
 CREATE
     OR REPLACE VIEW nuts_2006_levels AS WITH lvl0 AS(
         SELECT
@@ -100,13 +97,13 @@ CREATE
         b.nuts_id;
 ```
 
-```{r nuts_2006, include=FALSE}
+```{r nuts_2006, include=TRUE}
 nuts_2006_levels <- dbReadTable(db, "nuts_2006_levels")
 ```
 
 Generate point in the regions for version translation. The provided centroids are not sufficient, because they lie outside of island-polygons.
 
-```{sql connection=db, echo=FALSE, include=FALSE}
+```{sql connection=db, echo=FALSE, include=TRUE}
 CREATE
     TABLE
         IF NOT EXISTS nuts_2006_pt AS SELECT
@@ -131,13 +128,13 @@ CREATE
 
 The level-relations are derived from the region's names, because *FR91* (a colonial island) is not covered by higher level regions, thus spatial search misses it.
 
-```{bash shp2pgsql_2010, echo=FALSE, include=FALSE, eval=FALSE}
+```{bash shp2pgsql_2010, echo=FALSE, include=TRUE, eval=FALSE}
 shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2010_03M_SH/Data/NUTS_RG_03M_2010 public.nuts_2010_poly | psql -h localhost -d nuts -U bdukai
 ```
 
 Generate ID hieararchy based on NUTS levels. Spatial search doesn't work for NUTS2010, because FR91 is not covered by higher level regions, probably a data error.
 
-```{sql connection=db, include=FALSE}
+```{sql connection=db, include=TRUE}
 CREATE
     OR REPLACE VIEW nuts_2010_levels AS WITH lvl0 AS(
         SELECT
@@ -184,13 +181,13 @@ CREATE
         b.nuts_id;
 ```
 
-```{r nuts_2010, include=FALSE}
+```{r nuts_2010, include=TRUE}
 nuts_2010_levels <- dbReadTable(db, "nuts_2010_levels")
 ```
 
 Generate point in the regions for version translation. 
 
-```{sql connection=db, include=FALSE}
+```{sql connection=db, include=TRUE}
 CREATE
     TABLE
         IF NOT EXISTS nuts_2010_pt AS SELECT
@@ -214,13 +211,13 @@ The countries that are not included in the Excel sheet `/NUTS conundrum/2006-201
 
 ## Version 2013
 
-```{bash shp2pgsql_2013, echo=FALSE, include=FALSE, eval=FALSE}
+```{bash shp2pgsql_2013, echo=FALSE, include=TRUE, eval=FALSE}
 shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2013_03M_SH/data/NUTS_RG_03M_2013 public.nuts_2013_poly | psql -h localhost -d nuts -U bdukai
 ```
 
 Generate ID levels for NUTS 2013.
 
-```{sql connection=db, include=FALSE}
+```{sql connection=db, include=TRUE}
 CREATE
     OR REPLACE VIEW nuts_2013_levels AS WITH lvl0 AS(
         SELECT
@@ -269,7 +266,7 @@ CREATE
 
 Generate point in the regions for version translation. 
 
-```{sql connection=db, include=FALSE}
+```{sql connection=db, include=TRUE}
 CREATE
     TABLE
         IF NOT EXISTS nuts_2013_pt AS SELECT
@@ -291,7 +288,7 @@ CREATE
 
 Get the view.
 
-```{r nuts_2013, include=FALSE}
+```{r nuts_2013, include=TRUE}
 nuts_2013_levels <- dbReadTable(db, "nuts_2013_levels")
 ```
 
@@ -300,7 +297,7 @@ nuts_2013_levels <- dbReadTable(db, "nuts_2013_levels")
 
 NUTS3 regions are translated from version 2006 to 2010 by using a two-step spatial search. Firstly, the 2010 regions that were *merged* from 2006 to 2010 are spatially matched to 2006 regions, secondly the 2006 regions that were *split* from 2006 to 2010 are spatially matched to 2010 regions. Name changes and boundary shifts are also detected in the process. 
 
-```{sql connection=db, include=FALSE}
+```{sql connection=db, include=TRUE}
 CREATE
     OR replace VIEW nuts_translate_2006_2010 AS WITH nuts_match AS(
         -- case of merge in version 2006
@@ -340,7 +337,7 @@ CREATE
         nuts2006;
 ```
 
-```{r translation_schema, include=FALSE}
+```{r translation_schema, include=TRUE}
 tbl_2010 <- dbReadTable(db, "nuts_translate_2006_2010")
 
 tr_2006_2010 <- nuts_2010_levels %>%
@@ -354,7 +351,7 @@ rm(tbl_2010)
 
 ## Translate 2010 <-> 2013
 
-```{sql connection=db, include=FALSE}
+```{sql connection=db, include=TRUE}
 CREATE
     OR replace VIEW nuts_translate_2010_2013 AS WITH nuts_match AS(
         -- case of merge in version 2010
@@ -394,7 +391,7 @@ CREATE
         nuts2010;
 ```
 
-```{r translation_schema_2013, include=FALSE}
+```{r translation_schema_2013, include=TRUE}
 tbl_2013 <- dbReadTable(db, "nuts_translate_2010_2013")
 
 tr_2010_2013 <- nuts_2013_levels %>%
@@ -429,7 +426,7 @@ Value classification in the original data set:
 
 This variable will become *regions that **participated** in the core areas of cross-border cooperation programmes in the programming period 2007-2013*. Because the values are from 2009, thus they use NUTS 2006 (not 2010), and they refer to the programming period 2007-2013.
 
-```{r border_in, include=FALSE}
+```{r border_in, include=TRUE}
 # Read data
 typo_border_regions <- read.xlsx("~/Data/COHESIFY/Datasets for regression/Territorial typology/Typologies_metadata_data_final (2).xls", sheetName = "data regional typologies", colIndex = c(1,8), endRow = 1464, header = TRUE)
 # remove rows with metadata
@@ -438,17 +435,18 @@ typo_border_regions <- filter(typo_border_regions, typ_border_A != 2009)
 
 Join the NUTS3 2006 variable to the NUTS2-3 2010 regions using the 2006 <-> 2010 translation schema.
 
-```{r join_2006_2010, include=FALSE}
+```{r join_2006_2010, include=TRUE}
 # Join NUTS2-3 2010, NUTS3 2006, typ_border_A
-typo_border_regions <- nuts_2010_levels %>%
-    select(id2, id3) %>% 
-    full_join(tr_2006_2010, by = c("id3" = "nuts2010")) %>% 
-    full_join(typo_border_regions, by = c("nuts2006" = "id"))
+typo_border_regions <- typo_border_regions %>% 
+    full_join(tr_2006_2010, by = c("id" = "id3.2006")) %>% 
+    inner_join(eu_members, by = c("id0.2010" = "id0")) %>% 
+    rename(id2 = id2.2010, id3 = id3.2010) %>% 
+    select(id2, id3, typ_border_A)
 ```
 
 The aggregation of NUTS3 to NUTS2 is achieved by computing the precentage of *No programme / Programme / Programme (partly)* NUTS3 regions in the corresponding NUTS2 regions.
 
-```{r border_aggregate, include=FALSE}
+```{r border_aggregate, include=TRUE}
 border_lvl2 <- typo_border_regions %>% 
     select(id2, typ_border_A) %>% 
     group_by(id2) %>%
@@ -479,7 +477,7 @@ typ_border_lvl2_2006 <- nuts_2006_levels %>% select(id2) %>%
 rm(border_lvl2, programme, non_programme, partially_programme)
 ```
 
-```{r border_clean, include=FALSE}
+```{r border_clean, include=TRUE}
 # Count records
 x_total_cnt <- typ_border_lvl2_2006 %>% 
     count()
@@ -495,7 +493,7 @@ typ_border_lvl2_clean <- typ_border_lvl2_2006 %>%
            partially_programme == 0.0))
 ```
 
-```{r border_recode, include=FALSE}
+```{r border_recode, include=TRUE}
 typ_border_lvl2_encoded <- typ_border_lvl2_clean %>% 
     mutate(eligibility = case_when(.$non_programme == 1.0 ~ "not eligible",
                                   .$programme == 1.0 ~ "eligible",
@@ -512,7 +510,7 @@ knitr::kable(head(typ_border_lvl2_encoded), type = "html", title = "A sample of 
 ```
 
 
-```{r, include=FALSE}
+```{r, include=TRUE}
 write.csv(typ_border_lvl2_encoded, file = "./results/typ_border_lvl2_clean.csv",
           row.names = FALSE)
 ```
@@ -523,7 +521,18 @@ rm(typ_border_lvl2_2006, typ_border_lvl2_clean, typo_border_regions, x_total_cnt
 
 # Trust in national government
 
-```{r read_trust, include=FALSE}
+The question asked in the survey:
+
+*I would like to ask you a question about how much trust you have in certain institutions. For each of the following institutions, please tell me if you tend to trust it or tend not to trust it.*
+
+| The (NATIONALITY) Government | Tend to trust | Tend not to trust | DK |
+|-----|------|------|----|
+| – | 1 | 2 | 3 |
+
+Data description says:\
+*For all countries surveyed, a national weighting procedure, using marginal and intercellular weighting, was carried out based on this Universe description. In all countries, gender, age, region and size of locality were introduced in the iteration procedure. For international weighting (i.e. EU averages), TNS opinion & social applies the official population figures as provided by EUROSTAT or national statistic offices.*    
+
+```{r read_trust, include=TRUE}
 trust_raw <- read_sav("~/Data/COHESIFY/Datasets for regression/Trust in national government/ZA6694_v1-0-0 (1).sav")
 ```
 
@@ -559,7 +568,7 @@ Dataset includes *AL* and *RS*, which are non-EU countries, thus the correspondi
 | CY-TCC                                     | CY     | CY0                                              |
 
 
-```{r nuts_iso, include=FALSE}
+```{r nuts_iso, include=TRUE}
 # Translation schema for NUTS -> ISO3166/-2 & historical
 nuts_2010_levels_iso <- nuts_2010_levels %>%
     mutate(iso = case_when(.$id1 == "UKN" ~ "GB-NIR",
@@ -597,14 +606,33 @@ nuts_2010_levels_iso <- nuts_2010_levels_iso %>%
 ```
 
 
-```{r trust_translate, include=FALSE}
+```{r trust_translate, include=TRUE}
 trust_translate <- trust_raw %>% 
     select(isocntry, qa8a_7) %>% 
     inner_join(nuts_2010_levels_iso, by = c("isocntry" = "iso")) %>% 
     distinct() %>% 
     select(id2, qa8a_7) %>% 
-    rename(trust_gov = qa8a_7)
+    rename(trust_gov = qa8a_7) %>% 
+    arrange(id2)
 ```
+
+```{r test, eval=FALSE, include=TRUE}
+# probably these are the weights for the variables, but where is the description?
+a <- tbl_df(trust_raw) %>% select(w1:wex)
+```
+
+
+Sample of the results:
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(trust_translate), caption = "Trust in national government, NUTS 2010 level 2")
+```
+
+## Question
+
+1. How to aggregate the opinions?
+
+2. Probably I found the weights, but where is their description?
 
 # Quality of Government
 
@@ -623,10 +651,10 @@ Nomenclature: NUTS 2006 level 2
 
 Variable description (*eqi_eqi*):
 
-*The European Quality of Government Index - the overall EQI regional estimates. The final regional index was the result of aggregating the scores for the three pillars for each region. To calculate the final score for each country and region, the regional scores for each of the countries included in the 2013 survey were aggregated by regional population weights. This national average of regional scores is used to elucidate the extent to which regionx in country conforms to the national QoG standard, which is done by subtracting the national average from each region's score. A positive score for a region implies that it is above the national mean; conversely, a negative score indicates that the regions QoG performance is below the national mean. In the final index, this regional score is added to the national WGI score, so that each region's score is adjusted; centered around the WGI. In combining the regional and WGI data, none of the regional variation within countries is lost.*
+*The European Quality of Government Index - the overall EQI regional estimates. The final regional index was the result of aggregating the scores for the three pillars for each region. **To calculate the final score for each country and region, the regional scores for each of the countries included in the 2013 survey were aggregated by regional population weights.** This national average of regional scores is used to elucidate the extent to which regionx in country conforms to the national QoG standard, which is done by subtracting the national average from each region's score. A positive score for a region implies that it is above the national mean; conversely, a negative score indicates that the regions QoG performance is below the national mean. In the final index, this regional score is added to the national WGI score, so that each region's score is adjusted; centered around the WGI. In combining the regional and WGI data, none of the regional variation within countries is lost.*
 
 
-```{r read_qog, include=FALSE}
+```{r read_qog, include=TRUE}
 qog_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/QoG/publishing-the-eqi-data2013.xlsx",
     sheetName = "EQI2013", colIndex = c(1,9), startRow = 4, endRow = 251, 
@@ -634,7 +662,7 @@ qog_raw <- read.xlsx(
     rename(nuts_2006 = NUTS, eqi_2013 = EQI.2013)
 ```
 
-```{r qog_nuts2, include=FALSE}
+```{r qog_nuts2, include=TRUE}
 # Get NUTS2 regions of input
 qog_raw_nuts2 <- qog_raw %>% 
     select(nuts_2006) %>% 
@@ -643,18 +671,18 @@ qog_raw_nuts2 <- qog_raw %>%
 
 Translate NUTS 2006 to 2010.
 
-```{r qog_translate, include=FALSE}
+```{r qog_translate, include=TRUE}
 qog_translate <- qog_raw %>% 
     filter(nchar(nuts_2006) >= 4) %>% 
     inner_join(tr_2006_2010, by = c("nuts_2006" = "id2.2006")) %>%
     rename(id2.2006 = nuts_2006) %>% 
-    select(id2.2010, eqi_2013) %>% 
+    select(id2.2010, id2.2006, eqi_2013) %>% 
     distinct()
 ```
 
 The comparison of the translated to the original reveals that the *EQI 2013* variables in fact use a mix of NTUS 2006/2010 regions, because *HR* is already mapped as NUTS 2010, while the rest of the countries as 2006.
 
-```{r check_qog}
+```{r check_qog, include=TRUE}
 no_match <- full_join(qog_translate, qog_raw_nuts2,
                       by = c("id2.2006" = "nuts_2006")) %>% 
     filter(is.na(eqi_2013)) %>% 
@@ -663,18 +691,18 @@ no_match <- full_join(qog_translate, qog_raw_nuts2,
 
 The error is corrected by manually assigning the value to *HR04*.
 
-```{r correct_qog, include=FALSE}
+```{r correct_qog, include=TRUE}
 qog_translate[qog_translate$id2.2010 == "HR04", "eqi_2013"] <- qog_raw[qog_raw$nuts_2006 == "HR04", "eqi_2013"]
 ```
 
-
-```{r clean_up_qog}
-rm(no_match, qog_translate, qog_raw, qog_raw_nuts2)
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(qog_translate), caption = "Sample of Quality of Government variable")
 ```
+
 
 # Structural Funds eligibility 2007-2013, 2014-2020
 
-```{r read_struct, include=FALSE}
+```{r read_struct, include=TRUE}
 struct_raw_2007 <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/SF eligibility/Database of the cumulative allocations to selected projects and expenditure at NUTS2 2007-2013.xlsx",
     sheetIndex = 1, colIndex = c(4,7), startRow = 1, endRow = 17208, 
@@ -688,17 +716,27 @@ struct_raw_2014 <- read.xlsx(
     rename(nuts_2010 = NUTS, class = Class)
 ```
 
-```{r struct_prep, include=FALSE}
+```{r struct_prep, include=TRUE}
 struct_2007_prep <- struct_raw_2007 %>% 
     select(nuts_2010, class) %>% 
     distinct() %>% 
     arrange(nuts_2010)
 ```
 
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(struct_2007_prep), caption = "Structural Funds eligibility 2007-2013")
+```
+
+
 ### Question
 
-Do we need */SF eligibility/Database of the cumulative allocations to selected projects and expenditure at NUTS2 2007-2013.xlsx* *sheet:DB_NUTS2* *col: Objective*?\
-What are the programe codes? Which are relevant?
+1. Do we need */SF eligibility/Database of the cumulative allocations to selected projects and expenditure at NUTS2 2007-2013.xlsx* *sheet:DB_NUTS2* *col: Objective*?
+
+2. What are the programe codes? Which are relevant?
+
+3. How to aggregate classes?
+
+4. Again, this won't need population weighting.
 
 This */SF eligibility/Regional_policies_and_Europe_2020_RYB2016.xlsx* *sheet:Map1* *col:Class*?
 
@@ -712,7 +750,7 @@ Source: ESPON Database Portal\
 Date of access: 2016-12-02 12:32:59\
 Nomenclature: NUTS 2010 level 2
 
-```{r pov_load, include=FALSE}
+```{r pov_load, include=TRUE}
 pov_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Employment and poverty/At-risk-of-poverty rate by NUTS 2 regions Eurostat_Table_tgs00103FlagDesc_58269b17-0d0c-47bb-af35-714d1b24e497.xls",
     sheetIndex = 1, colIndex = c(1,14), startRow = 3, endRow = 184, 
@@ -722,7 +760,7 @@ names(pov_raw) <- c("nuts_2010", "poverty_2013")
 
 The coverage is heterogenous, some countries have NUTS2 level poverty values, while others are aggregae to NUTS0 level. The poverty values on NUTS0 level are the weighted average of the poverty values of the lower level NUTS regions, if these values exists.
 
-```{r pov_prep, include=FALSE}
+```{r pov_prep, include=TRUE}
 pov_lvl0 <- pov_raw %>% filter(nchar(nuts_2010) == 2) %>% 
     rename(id0 = nuts_2010)
 pov_lvl1 <- pov_raw %>% filter(nchar(nuts_2010) == 3) %>% 
@@ -747,7 +785,7 @@ pov_cntry <- pov_all %>%
     distinct()
 ```
 
-Countries that have only NUTS0 level poverty values:
+In case of the countries that have only NUTS0 level poverty values, the country value is inputed for all NUTS2 regions.
 
 ```{r,echo=FALSE}
 pov_cntry$id0
@@ -755,7 +793,7 @@ pov_cntry$id0
 
 Combine everything and input country average for the missing values in Finland.
 
-```{r pov_combine, include=FALSE}
+```{r pov_combine, include=TRUE}
 pov_nuts2 <- pov_cntry %>% 
     inner_join(nuts_2010_levels, by = "id0") %>% 
     select(id2, poverty_2013.id0) %>% 
@@ -769,16 +807,22 @@ pov_nuts2[substr(pov_nuts2$id2, 0, 2) == "FI" & is.na(pov_nuts2$poverty_2013),
           "poverty_2013"] <- pov_lvl0[pov_lvl0$id0 == "FI", "poverty_2013"]
 ```
 
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(pov_nuts2), caption = "People at risk of poverty or social exclusion, NUTS 2010 level 2")
+```
+
 
 ### Question
 
-Finland has missing values in some NUTS2 region, country average was inputed.
+1. The values are not weighted "back" from NUTS0 –> NUTS2, because we don't know the contribution of each NUTS2 region. However, the NUTS0 aggregates are seemingly the weighted averages of the lower level values.
+
+2. But didn't find description on the weighting of the values.
 
 ## Unemployment
 
 Unemployment rate of persons aged 15-74.
 
-```{r unemp_load, include=FALSE}
+```{r unemp_load, include=TRUE}
 unemp_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Employment and poverty/Unemployment rates by sex, age and NUTS 2 regions (_) lfst_r_lfu3rt.xls",
     sheetIndex = 1, colIndex = c(1,4), startRow = 11, endRow = 502, 
@@ -788,7 +832,7 @@ names(unemp_raw) <- c("nuts_2013", "unemployment_2013")
 
 Translate NUTS 2013 to 2010.
 
-```{r unemp_translate, include=FALSE}
+```{r unemp_translate, include=TRUE}
 unemp_translate <- unemp_raw %>%
     filter(nchar(nuts_2013) >= 4) %>% 
     inner_join(tr_2010_2013, by = c("nuts_2013" = "id2.2013")) %>% 
@@ -796,6 +840,13 @@ unemp_translate <- unemp_raw %>%
     distinct()
 ```
 
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(unemp_translate), caption = "Unemployment rate of persons aged 15-74, NUTS 2010 level 2")
+```
+
+### Question
+
+1. Same weighting question as above.
 
 # Educational attainment (tertiary)
 
@@ -804,9 +855,20 @@ Population aged 25-64 with tertiary education, NUTS 2 regions (%) [edat_lfse_04]
 Source: Eurostat\
 Last update: 2016-10-13\
 Date of access: 2016-12-04\
-Nomenclature: NUTS 2013 level 3
+Nomenclature: NUTS 2013 level 2
 
-```{r edu_load, include=FALSE}
+Description: [http://ec.europa.eu/eurostat/cache/metadata/en/edat1_esms.htm](http://ec.europa.eu/eurostat/cache/metadata/en/edat1_esms.htm)
+
+The data are calculated as annual averages of quarterly EU Labour Force Survey data (EU-LFS).
+
+Up to the reference year 2008, the data source (EU-LFS) is, where necessary, adjusted and enriched in various ways, in accordance with the specificities of an indicator, including the following:
+
++ correction of the main breaks in the LFS series,
++ estimation of the missing values, i.e. in case of missing quarters, annual results and EU aggregates are estimated using adjusted quarterly national labour force survey data or interpolations of the EU-LFS data with reference to the available quarter(s).
+
+Details on the adjustments are available in [CIRCABC](https://circabc.europa.eu/faces/jsp/extension/wai/navigation/container.jsp).
+
+```{r edu_load, include=TRUE}
 edu_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Education/Population aged 25-64 with tertiary education (EUROSTAT) edat_lfse_04.xls",
     sheetIndex = 1, colIndex = c(1,4), startRow = 12, endRow = 497, 
@@ -816,7 +878,7 @@ names(edu_raw) <- c("nuts_2013", "education_2013")
 
 Translate NUTS 2013 to 2010.
 
-```{r edu_translate, include=FALSE}
+```{r edu_translate, include=TRUE}
 edu_translate <- edu_raw %>%
     filter(nchar(nuts_2013) >= 4) %>% 
     inner_join(tr_2010_2013, by = c("nuts_2013" = "id2.2013")) %>% 
@@ -824,9 +886,14 @@ edu_translate <- edu_raw %>%
     distinct()
 ```
 
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(edu_translate), caption = "Population aged 25-64 with tertiary education, NUTS 2010 level 2 regions (%) [edat_lfse_04]")
+```
+
+
 # Social progress (Basic Human Needs, Wellbeing, Opportunity)
 
-```{r soc_load, include=FALSE}
+```{r soc_load, include=TRUE}
 soc_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Social Progress Index/2016_eu_spi.xlsx",
     sheetIndex = 1, colIndex = c(1,4), startRow = 1, endRow = 273, 
@@ -836,6 +903,9 @@ soc_raw <- read.xlsx(
            soc_idx = European.Union.Regional.Social.Progress.Index)
 ```
 
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(soc_raw), caption = "Social progress, NUTS 2010 level 2")
+```
 
 # Population change, net migration
 
@@ -846,7 +916,9 @@ Last update: 2016-10-28\
 Date of access: 2016-12-04\
 Nomenclature: NUTS 2010/2013 level 3
 
-```{r migr_load, include=FALSE}
+There are values for all NUTS levels, thus there is no need to aggregate NUTS3, just select NUTS2.
+
+```{r migr_load, include=TRUE}
 migr_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Migration/Crude rate of net migration plus statistical adjustment demo_r_gind3.xls",
     sheetIndex = 1, colIndex = c(1,4), startRow = 9, endRow = 2119, 
@@ -854,7 +926,7 @@ migr_raw <- read.xlsx(
 names(migr_raw) <- c("nuts_2010", "migration_2013")
 ```
 
-```{r migr_prep, include=FALSE}
+```{r migr_prep, include=TRUE}
 migr_prep <- migr_raw %>% 
     filter(nchar(nuts_2010) == 4) %>% 
     mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
@@ -882,7 +954,7 @@ migr_clean <- migr_prep %>%
     rename(id2 = nuts_2010)
 ```
 
-```{r migr_check, include=FALSE}
+```{r migr_check, include=TRUE}
 # Check if all EU members are present, should give 28
 migr_clean %>%
     mutate(x = substr(id2, 0, 2)) %>% 
@@ -895,11 +967,15 @@ The data set uses a NUTS 2010 nomenclature but still the NUTS1 regions *EL5* and
 
 Similarly in case of France, the NUTS 2010 regions *FR91, FR92, FR93, FR94* are present, and also their corresponding NUTS 2013 versions *FRA2, FRA3, FRA4*, while *FRA1, FRA5* is missing value. The NUTS 2013 regions present novel data compared to their 2010 version. Because the majority of the data correspond to NUTS 2010 regions, the NUTS 2013 regions of France are removed.
 
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(migr_clean), caption = "Population change, NUTS 2010 level 2")
+```
+
 # Access to social services
 
 The record for *Saarland* was missing its NUTS code thus it was manually added.
 
-```{r acc2soc_load, include=FALSE}
+```{r acc2soc_load, include=TRUE}
 acc2soc_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Access to services/SGI typology.xlsx",
     sheetIndex = 1, colIndex = c(1,7), startRow = 1, endRow = 287, 
@@ -909,7 +985,7 @@ acc2soc_raw <- read.xlsx(
 
 Translate NUTS 2006 to 2010.
 
-```{r acc2soc_tranlate, include=FALSE}
+```{r acc2soc_tranlate, include=TRUE}
 acc2soc_translate <- acc2soc_raw %>% 
     inner_join(tr_2006_2010, by = c("nuts_2006" = "id2.2006")) %>% 
     rename(id2.2006 = nuts_2006) %>% 
@@ -921,7 +997,7 @@ acc2soc_translate <- acc2soc_raw %>%
 
 Compare the translated and the original to check if everything is correct. Croatia (*HR*) is not present in the data.
 
-```{r check_acc2soc, include=FALSE}
+```{r check_acc2soc, include=TRUE}
 # Check if all EU members are present, should give 28
 acc2soc_translate %>%
     mutate(x = substr(id2.2010, 0, 2)) %>% 
@@ -929,6 +1005,9 @@ acc2soc_translate %>%
     distinct()
 ```
 
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(acc2soc_translate), caption = "Access to social services, NUTS 2010 level 2")
+```
 
 # Share of population employed in agriculture
 
@@ -936,7 +1015,7 @@ Agriculture, forestry and fishing; mining and quarrying\
 Percentage of total employment
 
 
-```{r agr_load, include=FALSE}
+```{r agr_load, include=TRUE}
 agr_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Agriculture/htec_emp_reg2.xls",
     sheetIndex = 1, colIndex = c(1,7), startRow = 1442, endRow = 1910, 
@@ -946,7 +1025,7 @@ agr_raw <- read.xlsx(
            agr_share = X2013)
 ```
 
-```{r agr_prep, include=FALSE}
+```{r agr_prep, include=TRUE}
 agr_clean <- agr_raw
 agr_clean$nuts_2010 <- unlist(lapply(strsplit(agr_raw$x, " "), function(x) x[1]))
 agr_clean <- agr_clean %>% select(-x)
@@ -995,6 +1074,9 @@ The NUTS2 regions below are missing values. For these regions the corresponding 
 knitr::kable(missing, caption = "NUTS2 regions with missing agriculture index values")
 ```
 
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(agr_clean), caption = "Share of population employed in agriculture, NUTS 2010 level 2")
+```
 
 ### Question
 
