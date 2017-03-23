@@ -15,7 +15,7 @@ subtitle: COHESIFY - The Impact of Cohesion Policy on EU Identification and is p
 papersize: a4paper
 ---
 
-```{r setup, echo=FALSE, include=TRUE}
+```{r setup, echo=FALSE, include=TRUE, message=FALSE}
 library(haven)
 library(xlsx)
 library(RPostgreSQL)
@@ -616,9 +616,160 @@ trust_translate <- trust_raw %>%
     arrange(id2)
 ```
 
-```{r test, eval=FALSE, include=TRUE}
-# probably these are the weights for the variables, but where is the description?
-a <- tbl_df(trust_raw) %>% select(w1:wex)
+Get region codes
+
+```{r}
+# Test on Belgium
+trust_be <- trust_raw %>% 
+    filter(!is.na(p7be)) %>% 
+    select(qa8a_7, qa8a_9, nuts, nutslvl, p7be, p7be_r)
+
+# trust_raw$nuts correspond to the aproppriate NUTS regions and those that are encoded in trust_raw$p7*
+```
+
+
+```{r trust_regions, include=FALSE}
+trust_regions <- trust_raw %>% 
+    select(qa8a_7, qa8a_9, nuts, nutslvl)
+
+trust_lvl0 <- trust_regions %>%
+    filter(nutslvl == 0) %>%
+    select(-nutslvl)
+trust_lvl1 <- trust_regions %>%
+    filter(nutslvl == 1) %>%
+    select(-nutslvl)
+trust_lvl2 <- trust_regions %>%
+    filter(nutslvl == 2) %>%
+    select(-nutslvl)
+
+# NUTS regions with values on each level
+t_nuts2 <- trust_lvl2 %>% 
+    filter(!all(is.na(qa8a_7), is.na(qa8a_9))) %>% 
+    mutate(id0 = substr(nuts, 0, 2)) %>% 
+    select(id0, nuts) %>% 
+    distinct() %>% 
+    arrange(id0) %>% 
+    inner_join(eu_members, by = "id0")
+
+t_nuts1 <- trust_lvl1 %>% 
+    filter(!all(is.na(qa8a_7), is.na(qa8a_9))) %>% 
+    mutate(id0 = substr(nuts, 0, 2)) %>% 
+    select(id0, nuts) %>% 
+    distinct() %>% 
+    arrange(id0) %>% 
+    inner_join(eu_members, by = "id0")
+
+t_nuts0 <- trust_lvl0 %>% 
+    filter(!all(is.na(qa8a_7), is.na(qa8a_9))) %>% 
+    select(nuts) %>% 
+    distinct() %>% 
+    arrange(nuts) %>% 
+    inner_join(eu_members, by = c("nuts" = "id0")) %>% 
+    mutate(x = 1)
+
+### NUTS2
+# nr. of nuts2 regions with missing values per country
+no_id2 <- nuts_2010_levels %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    select(-id3) %>% 
+    full_join(t_nuts2, by = c("id2" = "nuts")) %>% 
+    filter(is.na(id0.y)) %>% 
+    group_by(id0.x) %>% 
+    summarise(n_nuts2_missing = n()) %>% 
+    rename(id0 = id0.x)
+
+# nr. nuts2 regions with values per country
+has_id2 <- nuts_2010_levels %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    select(-id3) %>% 
+    full_join(t_nuts2, by = c("id2" = "nuts")) %>% 
+    filter(!is.na(id0.y)) %>%
+    group_by(id0.x) %>% 
+    summarise(n_nuts2 = n()) %>% 
+    rename(id0 = id0.x)
+
+# total nuts2 regions
+total_id2 <- nuts_2010_levels %>% 
+    select(id0, id2) %>% 
+    group_by(id0) %>% 
+    summarise(t_nuts2 = n())
+
+### NUTS1
+# nr. of nuts1 regions with missing values per country
+no_id1 <- nuts_2010_levels %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    select(-id3, -id2) %>% 
+    full_join(t_nuts1, by = c("id1" = "nuts")) %>% 
+    filter(is.na(id0.y)) %>% 
+    distinct() %>% 
+    group_by(id0.x) %>% 
+    summarise(n_nuts1_missing = n()) %>% 
+    rename(id0 = id0.x)
+
+# nr. of nuts1 regions with values per country
+has_id1 <- nuts_2010_levels %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    select(-id3, -id2) %>% 
+    full_join(t_nuts1, by = c("id1" = "nuts")) %>% 
+    filter(!is.na(id0.y)) %>% 
+    distinct() %>% 
+    group_by(id0.x) %>% 
+    summarise(n_nuts1 = n()) %>% 
+    rename(id0 = id0.x)
+
+# total nuts1 regions
+total_id1 <- nuts_2010_levels %>% 
+    select(id0, id1) %>% 
+    distinct() %>% 
+    group_by(id0) %>% 
+    summarise(t_nuts1 = n())
+
+### NUTS0
+# nr. of nuts0 regions with missing values per country
+has_id0 <- nuts_2010_levels %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    select(-id3, -id2, -id1) %>% 
+    full_join(t_nuts0, by = c("id0" = "nuts")) %>% 
+    distinct()
+
+
+# percent of regions with values per country
+coverage_id <- total_id2 %>% 
+    full_join(no_id2, by = "id0") %>% 
+    full_join(has_id2, by = "id0") %>% 
+    mutate(p_nuts2_coverage = case_when(is.na(.$n_nuts2_missing) ~ 100.0,
+                                        is.na(.$n_nuts2) ~ 0.0,
+                                        TRUE ~ round((.$n_nuts2 / 
+                                                      .$t_nuts2)*100))) %>% 
+    full_join(total_id1, by = "id0") %>% 
+    full_join(has_id1, by = "id0") %>% 
+    full_join(no_id1, by = "id0") %>% 
+    mutate(p_nuts1_coverage = case_when(is.na(.$n_nuts1_missing) ~ 100.0,
+                                        is.na(.$n_nuts1) ~ 0.0,
+                                       TRUE ~ round((.$n_nuts1 /
+                                                     .$t_nuts1)*100))) %>% 
+    full_join(has_id0, by = "id0") %>% 
+    mutate(p_nuts0_coverage = case_when(is.na(.$x) ~ 0.0,
+                                        TRUE ~ 100.0)) %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    rename(nr_n2_total = t_nuts2,
+           nr_n2_miss = n_nuts2_missing,
+           nr_n2_has = n_nuts2,
+           p_n2_has = p_nuts2_coverage,
+           nr_n1_total = t_nuts1,
+           nr_n1_miss = n_nuts1_missing,
+           nr_n1_has = n_nuts1,
+           p_n1_has = p_nuts1_coverage,
+           p_n0_has = p_nuts0_coverage) %>% 
+    select(id0, nr_n2_total, nr_n2_miss, nr_n2_has, p_n2_has, nr_n1_total,
+           nr_n1_miss, nr_n1_has, p_n1_has, p_n0_has)
+
+```
+
+The coverage of the survey answers in the NUTS regions:
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(coverage_id, caption = "The coverage of the answers pers NUTS regions for the questions \"Trust in national government and/or EU\"")
 ```
 
 
