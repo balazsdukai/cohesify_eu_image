@@ -20,6 +20,7 @@ library(haven)
 library(xlsx)
 library(RPostgreSQL)
 library(tidyverse)
+library(hrbrthemes)
 db <- dbConnect(RPostgreSQL::PostgreSQL(), dbname = "nuts", user="bdukai", host="localhost")
 knitr::opts_chunk$set(connection = "db")
 ```
@@ -830,7 +831,7 @@ trust_level <- function(x, trust) {
         tend_to_trust <- sum(x[x["id2"] == ctry & x[trust] == 1, "n"])
         total <- sum(x[x["id2"] == ctry, "n"])
         trust_value <- paste0(trust, "_value")
-        x[x["id2"] == ctry, trust_value] <- tend_to_trust / total
+        x[x["id2"] == ctry, trust_value] <- (tend_to_trust / total)*100
     }
     return(x[c("id2", trust_value)])
 }
@@ -840,13 +841,56 @@ trust_pct <- trust_level(data.frame(nt), "trust_natgov") %>%
     full_join(trust_level(data.frame(eu), "trust_eu"), by = "id2") %>% 
     distinct() %>% 
     arrange(id2) %>% 
-    mutate(id0 = substr(id2, 0, 2))
+    mutate(id0 = substr(id2, 0, 2), id1 = substr(id2, 0, 3))
 
 ```
 
+```{r trust_plot_de, echo=FALSE}
+trust_pct %>% 
+    filter(id0 == "DE") %>% 
+    mutate(e_w = case_when(.$id1 == "DE3" ~ "DE-E",
+                       .$id1 == "DE4" ~ "DE-E",
+                       .$id1 == "DE8" ~ "DE-E",
+                       .$id1 == "DED" ~ "DE-E",
+                       .$id1 == "DEE" ~ "DE-E",
+                       .$id1 == "DEG" ~ "DE-E",
+                       .$id1 == "DE1" ~ "DE-W",
+                       .$id1 == "DE2" ~ "DE-W",
+                       .$id1 == "DE5" ~ "DE-W",
+                       .$id1 == "DE6" ~ "DE-W",
+                       .$id1 == "DE7" ~ "DE-W",
+                       .$id1 == "DE9" ~ "DE-W",
+                       .$id1 == "DEA" ~ "DE-W",
+                       .$id1 == "DEB" ~ "DE-W",
+                       .$id1 == "DEC" ~ "DE-W",
+                       .$id1 == "DEF" ~ "DE-W"
+                       )) %>% 
+    distinct() %>% 
+    ggplot(aes(trust_natgov_value, trust_eu_value, color = e_w)) +
+        geom_point() +
+        geom_text(aes(label = id1), hjust = 0, nudge_x = 0.05, size = 4) +
+        labs(x = "Trust in national govt. (%) [NUTS2 regions]",
+             y = "Trust in EU (%) [NUTS2 regions]",
+             color = "Historical part:",
+             title = "Level of trust in the national government and the EU",
+             subtitle = "Germany per NUTS1 regions",
+             caption = "Data: Eurobarometer 85.2; May 2016; ZA 6694 / ICPSR") +
+        theme_ipsum_rc()
+```
+
 ```{r trust_plot, echo=FALSE}
-ggplot(trust_pct, aes(trust_natgov_value, trust_eu_value, color = id0)) +
-    geom_point()
+trust_pct %>% 
+    ggplot(aes(trust_natgov_value, trust_eu_value, color = id0)) +
+        geom_point() +
+        geom_text(aes(label = id2), hjust = 0, nudge_x = 0.3, size = 3,
+                  check_overlap = TRUE, color = "darkgrey", fontface = "bold") +
+        labs(x = "Trust in national govt. (%) [NUTS2 regions]",
+             y = "Trust in EU (%) [NUTS2 regions]",
+             color = "Country",
+             title = "Level of trust in the national government and the EU",
+             subtitle = "EU members per NUTS2 regions",
+             caption = "Data: Eurobarometer 85.2; May 2016; ZA 6694 / ICPSR") +
+        theme_ipsum_rc()
 ```
 
 Sample of the results:
