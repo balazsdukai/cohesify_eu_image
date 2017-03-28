@@ -1133,85 +1133,13 @@ knitr::kable(head(struct_2014_clean), caption = "Structural Funds eligibility 20
 ### Question
 
 
-# Unemployment, population at risk of poverty
+# Unemployment
 
-## Poverty rate(POV_RT)
-
-People at risk of poverty or social exclusion, from *Europe 2020 Index based on the distances to 4 of the 8 Europe 2020 Strategy*.
+*Europe 2020 Index based on the distances to 4 of the 8 Europe 2020 Strategy*
 
 Source: ESPON Database Portal\
 Date of access: 2016-12-02 12:32:59\
 Nomenclature: NUTS 2010 level 2
-
-```{r pov_load, include=TRUE}
-pov_raw <- read.xlsx(
-    "~/Data/COHESIFY/Datasets for regression/Employment and poverty/At-risk-of-poverty rate by NUTS 2 regions Eurostat_Table_tgs00103FlagDesc_58269b17-0d0c-47bb-af35-714d1b24e497.xls",
-    sheetIndex = 1, colIndex = c(1,14), startRow = 3, endRow = 184, 
-    header = TRUE, stringsAsFactors = FALSE, colClasses = c("character", "numeric"))
-names(pov_raw) <- c("nuts_2010", "poverty_2013")
-```
-
-The coverage is heterogenous, some countries have NUTS2 level poverty values, while others are aggregae to NUTS0 level. The poverty values on NUTS0 level are the weighted average of the poverty values of the lower level NUTS regions, if these values exists.
-
-```{r pov_prep, include=TRUE}
-pov_lvl0 <- pov_raw %>% filter(nchar(nuts_2010) == 2) %>% 
-    rename(id0 = nuts_2010)
-pov_lvl1 <- pov_raw %>% filter(nchar(nuts_2010) == 3) %>% 
-    mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
-    rename(id1 = nuts_2010)
-pov_lvl2 <- pov_raw %>% filter(nchar(nuts_2010) == 4) %>% 
-    mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
-    rename(id2 = nuts_2010) %>% 
-    inner_join(eu_members, by = "id0")
-
-pov_all <- pov_lvl0 %>% 
-    full_join(pov_lvl1, by = "id0", suffix = c(".id0", ".id1")) %>% 
-    full_join(pov_lvl2, by = "id0") %>% 
-    rename(poverty_2013.id2 = poverty_2013) %>% 
-    inner_join(eu_members, by = "id0") %>%
-    arrange(id0)
-
-# The list of countries that have only NUTS0 level poverty values
-pov_cntry <- pov_all %>% 
-    filter(is.na(poverty_2013.id2) & is.na(poverty_2013.id1)) %>%
-    select(id0, poverty_2013.id0) %>% 
-    distinct()
-```
-
-In case of the countries that have only NUTS0 level poverty values, the country value is inputed for all NUTS2 regions.
-
-```{r,echo=FALSE}
-pov_cntry$id0
-```
-
-Combine everything and input country average for the missing values in Finland.
-
-```{r pov_combine, include=TRUE}
-pov_nuts2 <- pov_cntry %>% 
-    inner_join(nuts_2010_levels, by = "id0") %>% 
-    select(id2, poverty_2013.id0) %>% 
-    rename(poverty_2013 = poverty_2013.id0) %>% 
-    distinct() %>% 
-    bind_rows(select(pov_lvl2, id2, poverty_2013)) %>% 
-    arrange(id2)
-
-# input country average for the missing values in Finland
-pov_nuts2[substr(pov_nuts2$id2, 0, 2) == "FI" & is.na(pov_nuts2$poverty_2013),
-          "poverty_2013"] <- pov_lvl0[pov_lvl0$id0 == "FI", "poverty_2013"]
-```
-
-```{r, results='asis', echo=FALSE}
-knitr::kable(head(pov_nuts2), caption = "People at risk of poverty or social exclusion, NUTS 2010 level 2")
-```
-
-
-### Question
-
-1. The values are not weighted "back" from NUTS0 –> NUTS2, because we don't know the contribution of each NUTS2 region. However, the NUTS0 aggregates are seemingly the weighted averages of the lower level values.
-
-2. But didn't find description on the weighting of the values.
-
-## Unemployment
 
 Unemployment rate of persons aged 15-74.
 
