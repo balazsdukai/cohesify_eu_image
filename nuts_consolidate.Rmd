@@ -419,12 +419,38 @@ eu_members <- data.frame(id0 = c("AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE",
 Data source: Eurostats\
 Nomenclature: NUTS2013 level 2 (only 2013 possible) [http://ec.europa.eu/eurostat/statistics-explained/index.php/Population_statistics_at_regional_level#NUTS](http://ec.europa.eu/eurostat/statistics-explained/index.php/Population_statistics_at_regional_level#NUTS)
 
+Population data from 2014 is used to generate region weights, because until 2014 *FRA, SI, UKI* were not recording population values.
 
 ```{r pop_in, include=TRUE}
 # Read data
-pop_2010 <- read.xlsx("~/Data/COHESIFY/Population/demo_r_d2jan.xls", sheetIndex = 1, colIndex = c(1,6), startRow = 11, endRow = 488, header = TRUE, stringsAsFactors = FALSE) %>% 
-    rename(nuts)
+pop_2014 <- read.xlsx("~/Data/COHESIFY/Population/demo_r_d2jan.xls",
+                      sheetIndex = 1, colIndex = c(1,10), startRow = 11,
+                      endRow = 488, header = TRUE, stringsAsFactors = FALSE,
+                      colClasses = c("character", "numeric")) %>% 
+    rename(nuts_2013 = GEO.TIME, population = X2014) %>% 
+    mutate(x = substr(nuts_2013, 0, 2), nutslvl = nchar(nuts_2013)-2) %>% 
+    inner_join(eu_members, by = c("x" = "id0")) %>% 
+    select(-x)
 ```
+
+Generate region weights.
+
+```{r pop_weigths, include=TRUE}
+nuts_2013_weigths <- pop_2014 %>% 
+    filter(nutslvl == 2) %>% 
+    inner_join(nuts_2013_levels, by = c("nuts_2013" = "id2")) %>% 
+    rename(id2 = nuts_2013) %>% 
+    select(id0, id1, id2, population)
+
+for (n2 in nuts_2013_weigths$id2) {
+    id0 <- unique(nuts_2013_weigths[nuts_2013_weigths$id2 == n2, "id0"])
+    tp <- pop_2014[pop_2014$nuts_2013 == id0, "population"]
+    rp <- nuts_2013_weigths[nuts_2013_weigths$id2 == n2, "population"]
+    w <- rp / tp
+    nuts_2013_weigths[nuts_2013_weigths$id2 == n2, "w"] <- w
+}
+```
+
 
 # Territorial typology à border regions
 
