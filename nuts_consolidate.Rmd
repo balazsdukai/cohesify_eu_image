@@ -15,7 +15,7 @@ subtitle: COHESIFY - The Impact of Cohesion Policy on EU Identification and is p
 papersize: a4paper
 ---
 
-```{r setup, echo=FALSE, include=TRUE, message=FALSE}
+```{r setup, include=TRUE, message=FALSE}
 library(haven)
 library(xlsx)
 library(RPostgreSQL)
@@ -346,8 +346,6 @@ tr_2006_2010 <- nuts_2010_levels %>%
     full_join(nuts_2006_levels, by = c("nuts2006" = "id3"),
               suffix = c(".2010", ".2006")) %>% 
     rename(id3.2010 = id3, id3.2006 = nuts2006)
-
-rm(tbl_2010)
 ```
 
 ## Translate 2010 <-> 2013
@@ -400,8 +398,6 @@ tr_2010_2013 <- nuts_2013_levels %>%
     full_join(nuts_2010_levels, by = c("nuts2010" = "id3"),
               suffix = c(".2013", ".2010")) %>% 
     rename(id3.2013 = id3, id3.2010 = nuts2010)
-
-rm(tbl_2013)
 ```
 
 ## EU member states
@@ -435,20 +431,25 @@ pop_2014 <- read.xlsx("~/Data/COHESIFY/Population/demo_r_d2jan.xls",
 
 Generate region weights.
 
-```{r pop_weigths, include=TRUE}
-nuts_2013_weigths <- pop_2014 %>% 
+```{r pop_weight, include=TRUE}
+nuts_2013_weight <- pop_2014 %>% 
     filter(nutslvl == 2) %>% 
     inner_join(nuts_2013_levels, by = c("nuts_2013" = "id2")) %>% 
-    rename(id2 = nuts_2013) %>% 
-    select(id0, id1, id2, population)
+    rename(id2.2013 = nuts_2013) %>% 
+    select(id0, id1, id2.2013, population)
 
-for (n2 in nuts_2013_weigths$id2) {
-    id0 <- unique(nuts_2013_weigths[nuts_2013_weigths$id2 == n2, "id0"])
+for (n2 in nuts_2013_weight$id2.2013) {
+    id0 <- unique(nuts_2013_weight[nuts_2013_weight$id2.2013 == n2, "id0"])
     tp <- pop_2014[pop_2014$nuts_2013 == id0, "population"]
-    rp <- nuts_2013_weigths[nuts_2013_weigths$id2 == n2, "population"]
+    rp <- nuts_2013_weight[nuts_2013_weight$id2.2013 == n2, "population"]
     w <- rp / tp
-    nuts_2013_weigths[nuts_2013_weigths$id2 == n2, "w"] <- w
+    nuts_2013_weight[nuts_2013_weight$id2.2013 == n2, "weight"] <- w
 }
+```
+
+```{r clean_up1, include=TRUE}
+rm(pop_2014, tbl_2013, tbl_2010, id0, tp, rp, w, n2)
+gc()
 ```
 
 
@@ -518,8 +519,6 @@ typ_border_lvl2_2013 <- nuts_2013_levels %>%
     full_join(., partially_programme, by = "id2") %>% 
     select(id2, non_programme, programme, partially_programme)
 typ_border_lvl2_2013[is.na(typ_border_lvl2_2013)] <- 0.0
-
-rm(border_lvl2, programme, non_programme, partially_programme)
 ```
 
 ```{r border_clean, include=TRUE}
@@ -539,11 +538,13 @@ typ_border_lvl2_clean <- typ_border_lvl2_2013 %>%
 ```
 
 ```{r border_recode, include=TRUE}
-typ_border_lvl2_encoded <- typ_border_lvl2_clean %>% 
+typ_border_clean <- typ_border_lvl2_clean %>% 
     mutate(eligibility = case_when(.$non_programme == 1.0 ~ "not eligible",
                                   .$programme == 1.0 ~ "eligible",
                                   .$non_programme < 1.0 &
-                                      .$programme < 1.0 ~ "partially"))
+                                      .$programme < 1.0 ~ "partially")) %>% 
+    rename(id2.2013 = id2, typ_border = eligibility) %>% 
+    select(id2.2013, typ_border)
 
 rm(x_total_cnt, x_2013_cnt, typ_border_lvl2_clean, typo_border_regions, typ_border_lvl2_2013)
 ```
@@ -553,14 +554,16 @@ rm(x_total_cnt, x_2013_cnt, typ_border_lvl2_clean, typo_border_regions, typ_bord
 The results look like below:
 
 ```{r, results="asis", echo=FALSE}
-knitr::kable(head(typ_border_lvl2_encoded), type = "html", title = "A sample of the translated \' Territorial boundaries á border regions \' variable")
+knitr::kable(head(typ_border_clean), type = "html", title = "A sample of the translated \' Territorial boundaries á border regions \' variable")
 ```
 
-
-```{r, include=TRUE, eval=FALSE}
-write.csv(typ_border_lvl2_encoded, file = "./results/typ_border_lvl2_clean.csv",
-          row.names = FALSE)
+```{r clean_up2, include=TRUE}
+rm(typo_border_regions, border_lvl2, programme, non_programme,
+   partially_programme, x_total_cnt, x_2013_cnt, typ_border_lvl2_clean,
+   typ_border_lvl2_2013)
+gc()
 ```
+
 
 # Trust in national government
 
@@ -609,66 +612,6 @@ Dataset includes *AL* and *RS*, which are non-EU countries, thus the correspondi
 | GB-NIR                                     | UK     | UKN                                              |
 | GB-GBN                                     | UK     | UK…                                              |
 | CY-TCC                                     | CY     | CY0                                              |
-
-
-```{r nuts_iso, include=TRUE}
-# Translation schema for NUTS -> ISO3166/-2 & historical
-nuts_2010_levels_iso <- nuts_2010_levels %>%
-    mutate(iso = case_when(.$id1 == "UKN" ~ "GB-NIR",
-                           .$id0 == "UK" & .$id1 != "UKN" ~ "GB-GBN",
-                           .$id1 == "DE3" ~ "DE-E",
-                           .$id1 == "DE4" ~ "DE-E",
-                           .$id1 == "DE8" ~ "DE-E",
-                           .$id1 == "DED" ~ "DE-E",
-                           .$id1 == "DEE" ~ "DE-E",
-                           .$id1 == "DEG" ~ "DE-E",
-                           .$id1 == "DE1" ~ "DE-W",
-                           .$id1 == "DE2" ~ "DE-W",
-                           .$id1 == "DE5" ~ "DE-W",
-                           .$id1 == "DE6" ~ "DE-W",
-                           .$id1 == "DE7" ~ "DE-W",
-                           .$id1 == "DE9" ~ "DE-W",
-                           .$id1 == "DEA" ~ "DE-W",
-                           .$id1 == "DEB" ~ "DE-W",
-                           .$id1 == "DEC" ~ "DE-W",
-                           .$id1 == "DEF" ~ "DE-W",
-                           .$id0 == "EL" ~ "GR",
-                           TRUE ~ .$id0
-                           ))
-# There is only a single NUTS region for Cyprus at all levels, but two
-# values in the Trust data (CY, CY-TCC)
-nuts_2010_levels_iso <- nuts_2010_levels_iso %>% 
-    bind_rows(data.frame(id0 = "CY",
-                         id1 = "CY0",
-                         id2 = "CY00",
-                         id3 = "CY000",
-                         iso = "CY-TCC")) %>% 
-    arrange(id0) %>% 
-    select(-id3) %>% 
-    distinct()
-```
-
-
-```{r trust_translate, include=TRUE}
-trust_translate <- trust_raw %>% 
-    select(isocntry, qa8a_7) %>% 
-    inner_join(nuts_2010_levels_iso, by = c("isocntry" = "iso")) %>% 
-    distinct() %>% 
-    select(id2, qa8a_7) %>% 
-    rename(trust_gov = qa8a_7) %>% 
-    arrange(id2)
-```
-
-Get region codes
-
-```{r}
-# Test on Belgium
-trust_be <- trust_raw %>% 
-    filter(!is.na(p7be)) %>% 
-    select(qa8a_7, qa8a_9, nuts, nutslvl, p7be, p7be_r)
-
-# trust_raw$nuts correspond to the aproppriate NUTS regions and those that are encoded in trust_raw$p7*
-```
 
 Data quality check that summarizes how many variables are missing per region level.
 
@@ -885,10 +828,14 @@ trust_pct <- trust_level(data.frame(nt), "trust_natgov") %>%
     full_join(trust_level(data.frame(eu), "trust_eu"), by = "id2") %>% 
     distinct() %>% 
     arrange(id2) %>% 
-    mutate(id0 = substr(id2, 0, 2), id1 = substr(id2, 0, 3))
+    mutate(id0 = substr(id2, 0, 2), id1 = substr(id2, 0, 3)) 
+    
 
-# clean up
-rm(nt, trust_be, trust_to_lvl2, trust_translate, val_lvl0, val_lvl1, eu, coverage_id, nuts_2010_levels_iso)
+trust_clean <- trust_pct %>% 
+    rename(id2.2013 = id2, trust_natgov = trust_natgov_value,
+           trust_eu = trust_eu_value) %>% 
+    select(id2.2013, trust_natgov, trust_eu)
+
 ```
 
 ```{r trust_plot_de, echo=FALSE}
@@ -940,8 +887,15 @@ trust_pct %>%
 Sample of the results:
 
 ```{r, results='asis', echo=FALSE}
-knitr::kable(head(trust_translate), caption = "Trust in national government, NUTS 2010 level 2")
+knitr::kable(head(trust_clean), caption = "Trust in national government, NUTS 2013 level 2")
 ```
+
+```{r clean_up3, include=TRUE, message=FALSE, warning=FALSE}
+# clean up
+rm(nt, trust_be, trust_to_lvl2, trust_translate, val_lvl0, val_lvl1, eu, coverage_id, nuts_2010_levels_iso, trust_pct, trust_raw)
+gc()
+```
+
 
 ## Question
 
@@ -1016,6 +970,11 @@ qog_clean <- qog_translate %>%
 
 ```{r, results='asis', echo=FALSE}
 knitr::kable(head(qog_clean), caption = "Sample of Quality of Government variable")
+```
+
+```{r clean_up4, include=TRUE, message=FALSE, warning=FALSE}
+rm(qog_translate, no_match, qog_raw, qog_raw_nuts2)
+gc()
 ```
 
 
@@ -1100,6 +1059,7 @@ struct_2014_prep <- struct_raw_2014 %>%
     select(nuts_2013, Less.Developed, Transition, More.Developed) %>% 
     inner_join(nuts_2013_levels, by = c("nuts_2013" = "id2")) %>% 
     select(-id0, -id1, -id3) %>% 
+    rename(id2.2013 = nuts_2013) %>% 
     distinct()
 
 struct_2014_prep[!is.na(struct_2014_prep$Less.Developed),
@@ -1130,7 +1090,13 @@ knitr::kable(head(struct_2007_clean), caption = "Structural Funds eligibility 20
 knitr::kable(head(struct_2014_clean), caption = "Structural Funds eligibility 2014-2020")
 ```
 
-### Question
+```{r clean_up5, include=TRUE, message=FALSE, warning=FALSE}
+rm(struct_2014_prep, struct_2007_prep, struct_raw_2007, struct_raw_2014)
+gc()
+```
+
+
+## Question
 
 
 # Unemployment
@@ -1139,35 +1105,30 @@ knitr::kable(head(struct_2014_clean), caption = "Structural Funds eligibility 20
 
 Source: ESPON Database Portal\
 Date of access: 2016-12-02 12:32:59\
-Nomenclature: NUTS 2010 level 2
+Nomenclature: NUTS 2013 level 2
 
 Unemployment rate of persons aged 15-74.
 
 ```{r unemp_load, include=TRUE}
-unemp_raw <- read.xlsx(
+unemp_clean <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Employment and poverty/Unemployment rates by sex, age and NUTS 2 regions (_) lfst_r_lfu3rt.xls",
     sheetIndex = 1, colIndex = c(1,4), startRow = 11, endRow = 502, 
-    header = TRUE, stringsAsFactors = FALSE, colClasses = c("character", "numeric"))
-names(unemp_raw) <- c("nuts_2013", "unemployment_2013")
-```
-
-Translate NUTS 2013 to 2010.
-
-```{r unemp_translate, include=TRUE}
-unemp_translate <- unemp_raw %>%
-    filter(nchar(nuts_2013) >= 4) %>% 
-    inner_join(tr_2010_2013, by = c("nuts_2013" = "id2.2013")) %>% 
-    select(id2.2010, unemployment_2013) %>% 
-    distinct()
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(id2.2013 = GEO.TIME, unemployment_2013 = X2013) %>% 
+    filter(nchar(id2.2013) >= 4) %>% 
+    distinct() %>% 
+    inner_join(nuts_2013_levels, by = c("id2.2013" = "id2")) %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    select(id2.2013, unemployment_2013)
 ```
 
 ```{r, results='asis', echo=FALSE}
-knitr::kable(head(unemp_translate), caption = "Unemployment rate of persons aged 15-74, NUTS 2010 level 2")
+knitr::kable(head(unemp_clean), caption = "Unemployment rate of persons aged 15-74, NUTS 2013 level 2")
 ```
 
-### Question
+## Question
 
-1. Same weighting question as above.
 
 # Educational attainment (tertiary)
 
@@ -1190,42 +1151,44 @@ Up to the reference year 2008, the data source (EU-LFS) is, where necessary, adj
 Details on the adjustments are available in [CIRCABC](https://circabc.europa.eu/faces/jsp/extension/wai/navigation/container.jsp).
 
 ```{r edu_load, include=TRUE}
-edu_raw <- read.xlsx(
+edu_clean <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Education/Population aged 25-64 with tertiary education (EUROSTAT) edat_lfse_04.xls",
     sheetIndex = 1, colIndex = c(1,4), startRow = 12, endRow = 497, 
-    header = TRUE, stringsAsFactors = FALSE, colClasses = c("character", "numeric"))
-names(edu_raw) <- c("nuts_2013", "education_2013")
-```
-
-Translate NUTS 2013 to 2010.
-
-```{r edu_translate, include=TRUE}
-edu_translate <- edu_raw %>%
-    filter(nchar(nuts_2013) >= 4) %>% 
-    inner_join(tr_2010_2013, by = c("nuts_2013" = "id2.2013")) %>% 
-    select(id2.2010, education_2013) %>% 
-    distinct()
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(id2.2013 = NUTS.code.2013, education_2013 = X2013) %>% 
+    filter(nchar(id2.2013) >= 4) %>% 
+    distinct() %>% 
+    inner_join(nuts_2013_levels, by = c("id2.2013" = "id2")) %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    select(id2.2013, education_2013)
 ```
 
 ```{r, results='asis', echo=FALSE}
-knitr::kable(head(edu_translate), caption = "Population aged 25-64 with tertiary education, NUTS 2010 level 2 regions (%) [edat_lfse_04]")
+knitr::kable(head(edu_clean), caption = "Population aged 25-64 with tertiary education, NUTS 2013 level 2 regions (%) [edat_lfse_04]")
 ```
 
 
 # Social progress (Basic Human Needs, Wellbeing, Opportunity)
 
+Nomenclature: NUTS 2010 level 2
+
 ```{r soc_load, include=TRUE}
-soc_raw <- read.xlsx(
+soc_clean <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Social Progress Index/2016_eu_spi.xlsx",
     sheetIndex = 1, colIndex = c(1,4), startRow = 1, endRow = 273, 
     header = TRUE, stringsAsFactors = FALSE,
     colClasses = c("character", "numeric")) %>% 
     rename(nuts_2010 = NUTS.Code.2010,
-           soc_idx = European.Union.Regional.Social.Progress.Index)
+           soc_idx = European.Union.Regional.Social.Progress.Index) %>% 
+    inner_join(tr_2010_2013, by = c("nuts_2010" = "id2.2010")) %>% 
+    inner_join(eu_members, by = c("id0.2013" = "id0")) %>% 
+    select(id2.2013, soc_idx) %>% 
+    distinct()
 ```
 
 ```{r, results='asis', echo=FALSE}
-knitr::kable(head(soc_raw), caption = "Social progress, NUTS 2010 level 2")
+knitr::kable(head(soc_clean), caption = "Social progress, NUTS 2013 level 2")
 ```
 
 # Population change, net migration
@@ -1243,8 +1206,9 @@ There are values for all NUTS levels, thus there is no need to aggregate NUTS3, 
 migr_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Migration/Crude rate of net migration plus statistical adjustment demo_r_gind3.xls",
     sheetIndex = 1, colIndex = c(1,4), startRow = 9, endRow = 2119, 
-    header = TRUE, stringsAsFactors = FALSE, colClasses = c("character", "numeric"))
-names(migr_raw) <- c("nuts_2010", "migration_2013")
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(nuts_2010 = GEO.TIME, migration_2013 = X2013)
 ```
 
 ```{r migr_prep, include=TRUE}
@@ -1269,16 +1233,22 @@ n2010 <- migr_prep %>%
     filter(is.na(id0))
 
 # Put it together and filter out 2013 regions
-migr_clean <- migr_prep %>%
+migr_2010 <- migr_prep %>%
     filter(!(nuts_2010 %in% n2013$nuts_2010)) %>% 
     arrange(nuts_2010) %>% 
     rename(id2 = nuts_2010)
+
+# translate to 2013
+migr_clean <- migr_2010 %>% 
+    inner_join(tr_2010_2013, by = c("id2" = "id2.2010")) %>% 
+    select(id2.2013, migration_2013) %>% 
+    distinct()
 ```
 
 ```{r migr_check, include=TRUE}
 # Check if all EU members are present, should give 28
 migr_clean %>%
-    mutate(x = substr(id2, 0, 2)) %>% 
+    mutate(x = substr(id2.2013, 0, 2)) %>% 
     select(x) %>% 
     n_distinct()
 ```
@@ -1289,10 +1259,18 @@ The data set uses a NUTS 2010 nomenclature but still the NUTS1 regions *EL5* and
 Similarly in case of France, the NUTS 2010 regions *FR91, FR92, FR93, FR94* are present, and also their corresponding NUTS 2013 versions *FRA2, FRA3, FRA4*, while *FRA1, FRA5* is missing value. The NUTS 2013 regions present novel data compared to their 2010 version. Because the majority of the data correspond to NUTS 2010 regions, the NUTS 2013 regions of France are removed.
 
 ```{r, results='asis', echo=FALSE}
-knitr::kable(head(migr_clean), caption = "Population change, NUTS 2010 level 2")
+knitr::kable(head(migr_clean), caption = "Population change, NUTS 2013 level 2")
 ```
 
+```{r clean_up6, include=TRUE, message=FALSE, warning=FALSE}
+rm(migr_raw, migr_2010, n2013, n2010, migr_prep)
+gc()
+```
+
+
 # Access to social services
+
+Nomenclature: NUTS 2006 level 2
 
 The record for *Saarland* was missing its NUTS code thus it was manually added.
 
@@ -1304,7 +1282,7 @@ acc2soc_raw <- read.xlsx(
     rename(nuts_2006 = NUTS2, sgi_aggregated = SGI.aggreg.)
 ```
 
-Translate NUTS 2006 to 2010.
+Translate NUTS 2006 to 2010 to 2013.
 
 ```{r acc2soc_tranlate, include=TRUE}
 acc2soc_translate <- acc2soc_raw %>% 
@@ -1314,6 +1292,11 @@ acc2soc_translate <- acc2soc_raw %>%
     distinct() %>% 
     mutate(x = substr(id2.2010, 0, 2)) %>% 
     inner_join(eu_members, by = c("x" = "id0"))
+
+acc2soc_clean <- acc2soc_translate %>% 
+    inner_join(tr_2010_2013, by = "id2.2010") %>% 
+    select(id2.2013, sgi_aggregated) %>% 
+    distinct()
 ```
 
 Compare the translated and the original to check if everything is correct. Croatia (*HR*) is not present in the data.
@@ -1327,10 +1310,18 @@ acc2soc_translate %>%
 ```
 
 ```{r, results='asis', echo=FALSE}
-knitr::kable(head(acc2soc_translate), caption = "Access to social services, NUTS 2010 level 2")
+knitr::kable(head(acc2soc_clean), caption = "Access to social services, NUTS 2013 level 2")
 ```
 
+```{r clean_up7, include=TRUE, message=FALSE, warning=FALSE}
+rm(acc2soc_translate, acc2soc_raw)
+gc()
+```
+
+
 # Share of population employed in agriculture
+
+Nomenclature: NUTS 2013 
 
 Agriculture, forestry and fishing; mining and quarrying\
 Percentage of total employment
@@ -1348,18 +1339,18 @@ agr_raw <- read.xlsx(
 
 ```{r agr_prep, include=TRUE}
 agr_clean <- agr_raw
-agr_clean$nuts_2010 <- unlist(lapply(strsplit(agr_raw$x, " "), function(x) x[1]))
+agr_clean$nuts_2013 <- unlist(lapply(strsplit(agr_raw$x, " "), function(x) x[1]))
 agr_clean <- agr_clean %>% select(-x)
 
-agr_lvl0 <- agr_clean %>% filter(nchar(nuts_2010) == 2) %>% 
-    rename(id0 = nuts_2010)
-agr_lvl1 <- agr_clean %>% filter(nchar(nuts_2010) == 3) %>% 
-    mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
-    rename(id1 = nuts_2010)
-agr_lvl2 <- agr_clean %>% filter(nchar(nuts_2010) == 4) %>% 
-    mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
-    mutate(id1 = substr(nuts_2010, 0, 3)) %>% 
-    rename(id2 = nuts_2010)
+agr_lvl0 <- agr_clean %>% filter(nchar(nuts_2013) == 2) %>% 
+    rename(id0 = nuts_2013)
+agr_lvl1 <- agr_clean %>% filter(nchar(nuts_2013) == 3) %>% 
+    mutate(id0 = substr(nuts_2013, 0, 2)) %>% 
+    rename(id1 = nuts_2013)
+agr_lvl2 <- agr_clean %>% filter(nchar(nuts_2013) == 4) %>% 
+    mutate(id0 = substr(nuts_2013, 0, 2)) %>% 
+    mutate(id1 = substr(nuts_2013, 0, 3)) %>% 
+    rename(id2 = nuts_2013)
 
 agr_all <- agr_lvl0 %>% 
     full_join(agr_lvl1, by = "id0", suffix = c(".id0", ".id1")) %>% 
@@ -1386,7 +1377,7 @@ for (r in missing$id2) {
 
 agr_clean <- agr_all %>%
     select(id2, agr_share.id2) %>% 
-    rename(agr_share = agr_share.id2)
+    rename(agr_share = agr_share.id2, id2.2013 = id2)
 ```
 
 The NUTS2 regions below are missing values. For these regions the corresponding NUTS1 value is inputed if available, otherwise the corresponding NUTS0 value.
@@ -1396,24 +1387,72 @@ knitr::kable(missing, caption = "NUTS2 regions with missing agriculture index va
 ```
 
 ```{r, results='asis', echo=FALSE}
-knitr::kable(head(agr_clean), caption = "Share of population employed in agriculture, NUTS 2010 level 2")
+knitr::kable(head(agr_clean), caption = "Share of population employed in agriculture, NUTS 2013 level 2")
 ```
 
-### Question
+```{r clean_up7, include=TRUE, message=FALSE, warning=FALSE}
+rm(agr_raw, agr_all, agr_lvl2, agr_lvl1, agr_lvl0, missing, r)
+gc()
+```
+
+
+## Question
 
 # EU Identification
 
 ```{r eu_id_load, include=TRUE}
-eu_id <- read.xlsx(
+eu_id_clean <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/EU Identification/EU Identification typology (COHESIFY Output 2.4a).xlsx",
     sheetIndex = 1, colIndex = c(1,3,4), startRow = 1, endRow = 273, 
     header = TRUE, stringsAsFactors = FALSE,
-    colClasses = c("character", "numeric", "character"))
+    colClasses = c("character", "numeric", "character")) %>% 
+    rename(id2.2010 = NUTS_2_.2010., eu_id_type_code = Type_Code,
+           eu_id_type = EU_Id_Type) %>% 
+    inner_join(tr_2010_2013, by = "id2.2010") %>% 
+    select(id2.2013, eu_id_type_code, eu_id_type) %>% 
+    distinct()
+
+missing <- eu_id_clean %>% 
+    filter(is.na(eu_id_type)) %>% 
+    select(id2.2013) %>% 
+    distinct()
 ```
 
+Regions with missing EU identification values:
+
+```{r eu_id_missing}
+knitr::kable(missing)
+```
+
+```{r clean_up8, include=TRUE, message=FALSE, warning=FALSE}
+rm(missing)
+```
+
+
 # Region weighting
+
+```{r join_everything}
+eu_vars <- typ_border_clean %>% 
+    full_join(trust_clean, by = "id2.2013") %>% 
+    full_join(qog_clean, by = "id2.2013") %>% 
+    full_join(struct_2007_clean, by = "id2.2013") %>% 
+    full_join(struct_2014_clean, by = "id2.2013") %>%
+    full_join(unemp_clean, by = "id2.2013") %>%
+    full_join(edu_clean, by = "id2.2013") %>%
+    full_join(soc_clean, by = "id2.2013") %>%
+    full_join(migr_clean, by = "id2.2013") %>%
+    full_join(acc2soc_clean, by = "id2.2013") %>%
+    full_join(agr_clean, by = "id2.2013") %>%
+    full_join(eu_id_clean, by = "id2.2013") %>%
+    full_join(select(nuts_2013_weight, id2.2013, weight), by = "id2.2013")
+```
+
 
 Variables that were weighted:
 
 + Trust in national government / EU
 + Quality of Government
++ Social progress
++ Migration
++ Access to social services
++ Share of population in agriculture
