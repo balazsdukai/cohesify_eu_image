@@ -1,0 +1,173 @@
+# Structural Funds eligibility 2007-2013, 2014-2020
+
+**Data source:** Structural Funds eligibility 2007-2013, Structural Funds eligibility 2014-2020 from *European Commission, Directorate-General for Regional and Urban Policy*
+
+**Date of survey:** Not applicable
+
+**Nomenclature:** NUTS 2006, level 2; NUTS 2013, level 2
+
+**Variables used:**
+
++ Cohesion policy Objective for the NUTS 2 regions, for the programming period 2007-2013
+
+Objective:
+
+    + 1- Convergence
+    + 2- Competitiveness
+    + 3- Cooperation
+    + 4- Multi Objective
+
++ Eligibility of regions for cohesion funds based on gross domestic product (GDP) per inhabitant (in PPS), by NUTS 2 regions, for the programming period 2014–2020
+
+Classes:
+
+    + 1 – Less developed regions (GDP per inhabitant, < 75)
+    + 2 – Transition regions (GDP per inhabitant, >= 75 – < 90)
+    + 3 – More developed regions (GDP per inhabitant, >= 90)
+    + : – Data not available
+
+## Data processing
+
+1. Convert the relevant variables (objective, classes) to binary variables.
+
+2. Translate the 2007-2013 data to NUTS 2010 then to 2013.
+
+```{r read_struct, include=FALSE, cache=TRUE}
+struct_raw_2007 <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/SF eligibility/Database of the cumulative allocations to selected projects and expenditure at NUTS2 2007-2013.xlsx",
+    sheetIndex = 1, colIndex = c(4,7), startRow = 1, endRow = 17208, 
+    header = TRUE, stringsAsFactors = FALSE) %>% 
+    rename(nuts_2006 = Location.Cd, class = Objective)
+struct_raw_2014 <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/SF eligibility/Regional_policies_and_Europe_2020_RYB2016.xlsx",
+    sheetIndex = 1, colIndex = c(1,4), startRow = 1, endRow = 287, 
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(nuts_2013 = NUTS, class = Class)
+```
+
+```{r struct_prep_2007, include=FALSE}
+# Structural Funds Eligibility 2007-2013, Reshape into binary variables
+struct_2007_prep <- struct_raw_2007 %>% 
+    select(nuts_2006, class) %>% 
+    distinct() %>% 
+    arrange(nuts_2006) %>% 
+    mutate(class = substr(class, 4, nchar(class))) %>% 
+    spread(class, class)
+
+names(struct_2007_prep) <- c("nuts_2006", "Competitiveness", "Convergence",
+                             "Cooperation", "Multi.Objective")
+
+struct_2007_prep[!is.na(struct_2007_prep$Competitiveness),
+                 "Competitiveness"] <- 1
+struct_2007_prep[!is.na(struct_2007_prep$Cooperation),
+                 "Cooperation"] <- 1
+struct_2007_prep[!is.na(struct_2007_prep$Convergence),
+                 "Convergence"] <- 1
+struct_2007_prep[!is.na(struct_2007_prep["Multi.Objective"]),
+                 "Multi.Objective"] <- 1
+struct_2007_prep[is.na(struct_2007_prep)] <- 0
+
+# Translate to 2013
+struct_2007_clean <- struct_2007_prep %>% 
+    inner_join(tr_2006_2010, by = c("nuts_2006" = "id2.2006")) %>% 
+    select(id2.2010, Competitiveness, Convergence, Cooperation, Multi.Objective) %>% 
+    distinct() %>% 
+    inner_join(tr_2010_2013, by = "id2.2010") %>% 
+    select(id2.2013, Competitiveness, Convergence, Cooperation, Multi.Objective) %>% 
+    distinct() %>% 
+    mutate(struct_2007.incl = 1)
+
+```
+
+```{r struct_2007_test, include=FALSE, eval=FALSE}
+# Testing: cooperation and multi-objective are not mutually exclusive, 
+# convergence and competitiveness are mutually exclusive
+struct_2007_prep %>% 
+    filter(Convergence == 1 & Competitiveness == 1) %>% 
+    arrange(nuts_2006)
+
+# struct_raw_2007 %>% 
+#     filter(nuts_2006 == "HU10" | nuts_2006 == "CZ01") %>% 
+#     distinct() %>% 
+#     arrange(nuts_2006)
+```
+
+```{r struct_prep_2014, include=FALSE}
+# Structural Funds Eligibility 2014-2020, Reshape into binary variables
+struct_2014_prep <- struct_raw_2014 %>% 
+    select(nuts_2013, class) %>% 
+    distinct() %>% 
+    arrange(nuts_2013) %>% 
+    mutate(class = case_when(.$class == 1 ~ "Less.Developed",
+                             .$class == 2 ~ "Transition",
+                             .$class == 3 ~ "More.Developed")) %>% 
+    spread(class, class) %>% 
+    select(nuts_2013, Less.Developed, Transition, More.Developed) %>% 
+    inner_join(nuts_2013_levels, by = c("nuts_2013" = "id2")) %>% 
+    select(-id0, -id1, -id3) %>% 
+    rename(id2.2013 = nuts_2013) %>% 
+    distinct()
+
+struct_2014_prep[!is.na(struct_2014_prep$Less.Developed),
+                 "Less.Developed"] <- 1
+struct_2014_prep[!is.na(struct_2014_prep$Transition),
+                 "Transition"] <- 1
+struct_2014_prep[!is.na(struct_2014_prep$More.Developed),
+                 "More.Developed"] <- 1
+struct_2014_prep[is.na(struct_2014_prep)] <- 0
+
+# Testing: all 3 categories are mutually exclusive
+struct_2014_prep %>% 
+    filter(Less.Developed == 1 & Transition == 1)
+struct_2014_prep %>% 
+    filter(Less.Developed == 1 & More.Developed == 1)
+struct_2014_prep %>% 
+    filter(More.Developed == 1 & Transition == 1)
+
+struct_2014_clean <- struct_2014_prep %>% 
+    mutate(struct_2014.incl = 1)
+rm(struct_2014_prep)
+```
+
+A sample of the output:
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(struct_2007_clean), caption = "Structural Funds eligibility 2007-2013")
+```
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(struct_2014_clean), caption = "Structural Funds eligibility 2014-2020")
+```
+
+## Variable encoding
+
+For programming period 2007-2013:
+
+**Competitiveness:** `1` – region is part of the objective *Competitiveness*, or not `0`
+
+**Convergence:** `1` – region is part of the objective *Convergence*, or not `0`
+
+**Cooperation:** `1` – region is part of the objective *Cooperation*, or not `0`
+
+**Multi.Objective:** `1` – region is part of the objective *Multi Objective*, or not `0`
+
+For porgramming period 2014-2020:
+
+**Less.Developed:** `1` – region is part of the class *Less developed regions (GDP per inhabitant, < 75)*, or not `0`
+
+**Transition:** `1` – region is part of the class *Transition regions (GDP per inhabitant, >= 75 – < 90)*, or not `0`
+
+**More.Developed:** `1` – region is part of the class *More developed regions (GDP per inhabitant, >= 90)*, or not `0`
+
+
+## Data quality
+
+The following aspects might influence the quality of the data:
+
++ NUTS 2 2006 regions were translated to NUTS 2 2013 regions
+
+```{r clean_up5, include=FALSE, message=FALSE, warning=FALSE}
+rm(struct_2007_prep, struct_raw_2007, struct_raw_2014)
+gc()
+```

@@ -1,0 +1,117 @@
+# Share of population employed in agriculture
+
+**Data source:** Eurostat
+
+**Last update:** 24.01.2017
+
+**Date of access:** 21.02.2017
+
+**Nomenclature:** NUTS 2013
+
+**Variable used:**
+
++ Employment in technology and knowledge-intensive sectors by NUTS 2 regions and sex (from 2008 onwards, NACE Rev. 2) [`htec_emp_reg2`] / Agriculture, forestry and fishing; mining and quarrying [Percentage of total employment]
+
+## Data processing
+
+1. Parse NUTS2 region codes from code-name combinations.
+
+2. Input missing values for NUTS2 regions from higher level regions. Depending on the availability, either from NUTS1 or NUTS0. 
+
+```{r agr_load, include=FALSE, cache=TRUE}
+agr_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Agriculture/htec_emp_reg2.xls",
+    sheetIndex = 1, colIndex = c(1,7), startRow = 1442, endRow = 1910, 
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(x = GEO.TIME,
+           agr_share = X2013)
+```
+
+```{r agr_prep, include=FALSE}
+# parse the nuts id from the names
+agr_clean <- agr_raw
+agr_clean$nuts_2013 <- unlist(lapply(strsplit(agr_raw$x, " "), function(x) x[1]))
+agr_clean <- agr_clean %>% select(-x)
+
+agr_lvl0 <- agr_clean %>% filter(nchar(nuts_2013) == 2) %>% 
+    rename(id0 = nuts_2013)
+agr_lvl1 <- agr_clean %>% filter(nchar(nuts_2013) == 3) %>% 
+    mutate(id0 = substr(nuts_2013, 0, 2)) %>% 
+    rename(id1 = nuts_2013)
+agr_lvl2 <- agr_clean %>% filter(nchar(nuts_2013) == 4) %>% 
+    mutate(id0 = substr(nuts_2013, 0, 2)) %>% 
+    mutate(id1 = substr(nuts_2013, 0, 3)) %>% 
+    rename(id2 = nuts_2013)
+
+# put all the values for all regions together;
+# regions are only included in the strict analyisis if they have a 
+# value for the nuts2 region
+agr_all <- agr_lvl0 %>% 
+    full_join(agr_lvl1, by = "id0", suffix = c(".id0", ".id1")) %>% 
+    full_join(agr_lvl2, by = "id1") %>% 
+    rename(agr_share.id2 = agr_share, id0 = id0.x) %>% 
+    select(-id0.y) %>%
+    inner_join(eu_members, by = "id0") %>% 
+    inner_join(select(nuts_2013_levels, id2), by = "id2") %>% 
+    distinct() %>% 
+    # mutate(agr.incl = case_when(!is.na(.$agr_share.id2) ~ 1,
+    #                             TRUE ~ 0)) %>%
+    full_join(nuts_2013_single_n0, by = "id0") %>% 
+    full_join(nuts_2013_single_n1, by = "id1") %>% 
+    mutate(agr.incl = case_when(.$incl.x == 1 |
+                                (.$incl.y == 1 & !is.na(.$agr_share.id1)) |
+                                !is.na(.$agr_share.id2) ~ 1)) %>% 
+    arrange(id0.x)
+
+# Input country average to missing NUTS2 values
+missing <- agr_all %>% filter(is.na(agr.incl))
+
+for (r in missing$id2) {
+    # if NUTS1 value missing
+    if (is.na(agr_all[agr_all$id2 == r, "agr_share.id1"])) {
+        agr_all[agr_all$id2 == r,
+                "agr_share.id2"] <- agr_all[agr_all$id2 == r, "agr_share.id0"]
+    } else {
+    # NUTS1 value present
+        agr_all[agr_all$id2 == r,
+                "agr_share.id2"] <- agr_all[agr_all$id2 == r, "agr_share.id1"]
+    }
+}
+
+agr_clean <- agr_all %>%
+    select(id2, agr_share.id2, agr.incl) %>% 
+    rename(agr_share = agr_share.id2, id2.2013 = id2)
+
+agr_clean[is.na(agr_clean)] <- 0
+```
+
+A sample of the output:
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(agr_clean), caption = "Share of population employed in agriculture, NUTS 2013 level 2")
+```
+
+## Variable encoding
+
+**agr_share:** Agriculture, forestry and fishing; mining and quarrying [Percentage of total employment]
+
+## Data quality
+
+The following aspects might influence the quality of the data:
+
++ The NUTS2 regions below are missing values. For these regions the corresponding NUTS1 value is inputed if available, otherwise the corresponding NUTS0 value.
+
+The NUTS2 regions that needed value inputation from higher level regions are:
+
+
+```{r agr_missing_table, results='asis', echo=FALSE}
+unique(agr_clean[agr_clean$agr.incl == 0, "id2.2013"])
+# knitr::kable(select(missing, agr_share.id0, id0.x, agr_share.id1, id1), caption = "NUTS2 regions with missing agriculture index values")
+```
+
+```{r clean_up71, include=FALSE, message=FALSE, warning=FALSE}
+rm(agr_raw, agr_all, agr_lvl2, agr_lvl1, agr_lvl0, missing, r)
+gc()
+```
+

@@ -1,0 +1,46 @@
+# Social progress (Basic Human Needs, Wellbeing, Opportunity)
+
+**Data source:** EU regional Social Progress Index (SPI) 2016 [http://www.socialprogressimperative.org/custom-indexes/european-union/](http://www.socialprogressimperative.org/custom-indexes/european-union/)
+
+**Date of survey/preparation:** 2016
+
+**Nomenclature:** NUTS 2010 level 2
+
+**Variables used:**
+
++ European Union Regional Social Progress Index
+
+## Data processing
+
+1. Translate from NUTS 2 2010 to NUTS 2 2013
+
+```{r soc_load, include=FALSE, cache=TRUE}
+soc_clean <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Social Progress Index/2016_eu_spi.xlsx",
+    sheetIndex = 1, colIndex = c(1,4), startRow = 1, endRow = 273, 
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(nuts_2010 = NUTS.Code.2010,
+           soc_idx = European.Union.Regional.Social.Progress.Index) %>% 
+    inner_join(tr_2010_2013, by = c("nuts_2010" = "id2.2010")) %>% 
+    inner_join(eu_members, by = c("id0.2013" = "id0")) %>% 
+    select(id2.2013, soc_idx) %>% 
+    distinct() %>% 
+    mutate(soc_idx.incl = 1)
+```
+
+A sample of the output:
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(soc_clean), caption = "Social progress, NUTS 2013 level 2")
+```
+
+## Variable encoding
+
+**soc_idx:** European Union Regional Social Progress Index
+
+## Data quality
+
+The following aspects might influence the quality of the data:
+
++ NUTS 2 2010 regions were translated to NUTS 2 2013 regions

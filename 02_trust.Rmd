@@ -1,0 +1,446 @@
+# Trust in national government
+
+**Data source:**
+
++ European Commission, Brussels (2016): Eurobarometer 84.3 (2015). TNS opinion, Brussels [producer]. GESIS Data Archive, Cologne. ZA6643 Data file Version 3.0.0, [doi:10.4232/1.12664](https://dbk.gesis.org/dbksearch/sdesc2.asp?no=6643&db=e&doi=10.4232/1.12664)
+
++ European Commission, Brussels; Directorate General Communication COMM.A.1 ´Strategy, Corporate Communication Actions and Eurobarometer´ (2016): Eurobarometer 85.2 (2016). GESIS Data Archive, Cologne. ZA6694 Data file Version 1.0.0, [doi:10.4232/1.12633](https://dbk.gesis.org/dbksearch/sdesc2.asp?no=6694&db=e&doi=10.4232/1.12633)
+
+**Date of survey:** Nov. 2015, May 2016
+
+**Nomenclature:** NUTS 2010 level 3
+
+**Variables used:** 
+
+Question in the survey:\
+*"I would like to ask you a question about how much trust you have in certain institutions. For each of the following institutions, please tell me if you tend to trust it or tend not to trust it."*
+
++ Trust in *The (NATIONALITY) Government* – `qa8a_8` from ZA6643, `qa8a_7` from ZA6694
+
++ Trust in *The European Union* – `qa8a_10` from ZA6643, `qa8a_9` from ZA6694
+
+Variable encoding in the original data set:
+
++ 1 – Tend to trust
++ 2 – Tend not to trust
++ 3 – DK (Don't Know)
+
+In order to increase the reliability of the the variables, the two survey results were added together. The two surveys were conducted with six months apart.
+
+## Data processing
+
+1. Translate the NUTS 2010 level 2 regions to NUTS 2013 level 2 with the 2010 <-> 2013 translation schema.
+
+2. Mark those NUTS2 regions that have no value, but only their upper level regions contain values.
+
+3. Count the number of responses per region per response (*1/2/3*) and compute the precentage of positive (*1*) responses per region. The answer *DK (3)* counts as negative response.
+
+4. If a region has values from *either* of the surveys, it will be included in the strict analysis.
+
+
+```{r read_trust, include=FALSE, cache=TRUE}
+trust_raw_2016 <- read_sav("~/Data/COHESIFY/Datasets for regression/Trust in national government/ZA6694_v1-0-0 (1).sav")
+trust_raw_2015 <- read_sav("/home/bdukai/Data/COHESIFY/Datasets for regression/Trust in national government/ZA6643_v3-0-0 (2).sav")
+```
+
+```{r trust_prep, include=FALSE}
+# get values for trust in national government
+get_trust <- function(df, eu_members, t_natgov, t_eu){
+    # Mapping NUTS0 -> NUTS2
+    # in this case all the countries that have only NUTS0 values also
+    # contain only a single NUTS2 region, so no problem
+    val_lvl0 <- df %>%
+        select_(t_natgov, t_eu, "nuts", "nutslvl") %>%
+        filter(nutslvl == 0) %>%
+        select(-nutslvl) %>% 
+        inner_join(nuts_2013_single_n0, by = c("nuts" = "id0")) %>% 
+        inner_join(eu_members, by = c("nuts" = "id0")) %>% 
+        inner_join(nuts_2013_levels, by = c("nuts" = "id0")) %>% 
+        rename_(trust_natgov = t_natgov, trust_eu = t_eu, trust.incl = "incl") %>% 
+        select(id2, trust_natgov, trust_eu, trust.incl)
+    
+    # Mapping NUTS1 -> NUTS2
+    # these are regions where only NUTS1 values exist
+    # they are marked to 'exclude' from the strict analysis at the end
+    val_lvl1 <- df %>%
+        select_(t_natgov, t_eu, "nuts", "nutslvl") %>%
+        filter(nutslvl == 1) %>%
+        select(-nutslvl) %>%
+        inner_join(tr_2010_2013, by = c("nuts" = "id1.2010")) %>% 
+        inner_join(eu_members, by = c("id0.2013" = "id0")) %>%
+        full_join(select(nuts_2013_single_n1, -id0), by = c("id1.2013" = "id1")) %>%
+        rename_(trust_natgov = t_natgov, trust_eu = t_eu, id2 = "id2.2013", trust.incl = "incl") %>% 
+        select(id2, trust_natgov, trust_eu, trust.incl)
+    val_lvl1[is.na(val_lvl1)] <- 0
+    
+    # Put it together
+    trust_to_lvl2 <- df %>%
+        select_(t_natgov, t_eu, "nuts", "nutslvl") %>%
+        filter(nutslvl == 2) %>%
+        inner_join(tr_2010_2013, by = c("nuts" = "id2.2010")) %>% 
+        inner_join(eu_members, by = c("id0.2013" = "id0")) %>%
+        rename_(trust_natgov = t_natgov, trust_eu = t_eu, id2 = "id2.2013") %>% 
+        select(id2, trust_natgov, trust_eu, -nutslvl) %>% 
+        mutate(trust.incl = 1) %>% 
+        bind_rows(val_lvl0) %>% 
+        bind_rows(val_lvl1)
+    
+    nt <- trust_to_lvl2 %>% 
+        group_by(id2) %>% 
+        count(trust_natgov, trust.incl)
+    
+    eu <- trust_to_lvl2 %>% 
+        group_by(id2) %>% 
+        count(trust_eu, trust.incl)
+    
+    res <- list(nt, eu)
+    
+    return(res)
+}
+
+# Get survey answers for both years, aggregated by NUTS2 regions
+# trust in nationan government
+nt_2015 <- get_trust(trust_raw_2015, eu_members, "qa8a_8", "qa8a_10")[[1]]
+nt_2016 <- get_trust(trust_raw_2016, eu_members, "qa8a_7", "qa8a_9")[[1]]
+# trust in eu
+eu_2015 <- get_trust(trust_raw_2015, eu_members, "qa8a_8", "qa8a_10")[[2]]
+eu_2016 <- get_trust(trust_raw_2016, eu_members, "qa8a_7", "qa8a_9")[[2]]
+
+# Combine 2015 and 2016
+nt <- nt_2015 %>% 
+    full_join(nt_2016, by = c("id2", "trust_natgov")) %>% 
+    arrange(id2)
+# in which regions do the two years complement each other?
+nt_missing <- filter(nt, is.na(n.x) | is.na(n.y))
+
+eu <- eu_2015 %>% 
+    full_join(eu_2016, by = c("id2", "trust_eu")) %>% 
+    arrange(id2)
+# in which regions do the two years complement each other?
+eu_missing <- filter(eu, is.na(n.x) | is.na(n.y))
+
+# replace missing values with 0
+nt[is.na(nt)] <- 0
+eu[is.na(eu)] <- 0
+
+# there are two trust.incl variables from the two years, and in case
+# one year contains value for a region, while the other doesnt,
+# one of the trust.incl is 0 while the other is 1. But it is no problem,
+# as it is enough if at least one year contains value.
+nt <- nt %>% mutate(n = n.x + n.y)
+eu <- eu %>% mutate(n = n.x + n.y)
+
+nt_incl <- nt %>% 
+    ungroup() %>% 
+    mutate(trust.incl = case_when((.$trust.incl.x > 0 | .$trust.incl.y > 0) ~ 1,
+                                  (.$trust.incl.x == 0 & .$trust.incl.y == 0) ~ 0)) %>% 
+    select(id2, trust.incl) %>% 
+    distinct()
+
+eu_incl <- eu %>% 
+    ungroup() %>% 
+    mutate(trust.incl = case_when((.$trust.incl.x > 0 | .$trust.incl.y > 0) ~ 1,
+                                  (.$trust.incl.x == 0 & .$trust.incl.y == 0) ~ 0)) %>% 
+    select(id2, trust.incl) %>% 
+    distinct()
+
+# sanity check if both eu and natgov variables contain/miss values for the same
+# regions or there are discrepancies, but it looks like that they contain/miss
+# values for the exact same regions
+trust_incl <- full_join(nt_incl, eu_incl, by = "id2") %>% 
+    filter(trust.incl.x != trust.incl.y)
+
+# compute how many of the respondents tend to trust the gov./eu in the 
+# nuts regions
+trust_level <- function(x, trust) {
+    id2 <- unique(x$id2)
+    for (ctry in id2) {
+        tend_to_trust <- sum(x[x["id2"] == ctry & x[trust] == 1, "n"])
+        total <- sum(x[x["id2"] == ctry, "n"])
+        trust_value <- paste0(trust, "_value")
+        x[x["id2"] == ctry, trust_value] <- (tend_to_trust / total)*100
+    }
+    return(x[c("id2", trust_value)])
+}
+
+# need to cast to data.frame to avoid funky errors
+trust_pct <- trust_level(data.frame(nt), "trust_natgov") %>% 
+    full_join(trust_level(data.frame(eu), "trust_eu"), by = "id2") %>% 
+    distinct() %>% 
+    arrange(id2) %>% 
+    mutate(id0 = substr(id2, 0, 2), id1 = substr(id2, 0, 3)) 
+    
+
+trust_clean <- trust_pct %>% 
+    rename(id2.2013 = id2, trust_natgov = trust_natgov_value,
+           trust_eu = trust_eu_value) %>% 
+    select(id2.2013, trust_natgov, trust_eu) %>% 
+    full_join(nt_incl, by = c("id2.2013" = "id2"))
+```
+
+A sample of the output:
+
+```{r trust_plot_de, echo=FALSE}
+trust_pct %>% 
+    filter(id0 == "DE") %>% 
+    mutate(e_w = case_when(.$id1 == "DE3" ~ "DE-E",
+                       .$id1 == "DE4" ~ "DE-E",
+                       .$id1 == "DE8" ~ "DE-E",
+                       .$id1 == "DED" ~ "DE-E",
+                       .$id1 == "DEE" ~ "DE-E",
+                       .$id1 == "DEG" ~ "DE-E",
+                       .$id1 == "DE1" ~ "DE-W",
+                       .$id1 == "DE2" ~ "DE-W",
+                       .$id1 == "DE5" ~ "DE-W",
+                       .$id1 == "DE6" ~ "DE-W",
+                       .$id1 == "DE7" ~ "DE-W",
+                       .$id1 == "DE9" ~ "DE-W",
+                       .$id1 == "DEA" ~ "DE-W",
+                       .$id1 == "DEB" ~ "DE-W",
+                       .$id1 == "DEC" ~ "DE-W",
+                       .$id1 == "DEF" ~ "DE-W"
+                       )) %>% 
+    distinct() %>% 
+    ggplot(aes(trust_natgov_value, trust_eu_value, color = e_w)) +
+        geom_point() +
+        geom_text(aes(label = id1), hjust = 0, nudge_x = 0.05, size = 4) +
+        labs(x = "Trust in national govt. (%) [NUTS2 regions]",
+             y = "Trust in EU (%) [NUTS2 regions]",
+             color = "Historical part:",
+             title = "Level of trust in the national government and the EU",
+             subtitle = "Germany per NUTS1 regions",
+             caption = "Data: Eurobarometer 85.2 May 2016 ZA 6694 + 84.3 Nov 2015 ZA 6643 / ICPSR;")
+```
+
+```{r trust_plot, echo=FALSE}
+trust_pct %>% 
+    ggplot(aes(trust_natgov_value, trust_eu_value, color = id0)) +
+        geom_point() +
+        geom_text(aes(label = id2), hjust = 0, nudge_x = 0.3, size = 3,
+                  check_overlap = TRUE, color = "darkgrey", fontface = "bold") +
+        labs(x = "Trust in national govt. (%) [NUTS2 regions]",
+             y = "Trust in EU (%) [NUTS2 regions]",
+             color = "Country",
+             title = "Level of trust in the national government and the EU",
+             subtitle = "EU members per NUTS2 regions",
+             caption = "Data: Eurobarometer 85.2 May 2016 ZA 6694 + 84.3 Nov 2015 ZA 6643 / ICPSR;")
+```
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(trust_clean), caption = "Trust in national government and the EU, NUTS 2013 level 2")
+```
+
+## Variable encoding
+
+**trust_natgov:** percentage of respondents answering *Tend to trust* for the *trust in national government* question
+
+**trust_eu:** percentage of respondents answering *Tend to trust* for the *trust in EU* question
+
+## Data quality
+
+The following aspects might influence the quality of the data:
+
++ Missing values in regions. What could be problematic in this case is that three of the large countries with many NUTS2 regions, **IT, DE, UK** have only data on the NUTS1 level. Therefore the groups of the NUTS2 regions that take the same value from the corresponding NUTS1 region could skew the regression outcome. Furthermore, some countries have no values at all. These countries are: **EE, HR, IE, LT, LV, SI**. Notice that the countries that have records only on NUTS0 level, are composed of only one NUTS2 region. 
+
+```{r trust_regions, include=FALSE}
+# The function computes the coverage of relevant survey answers in the NUTS regions.
+
+get_nuts <- function(df, trust_natgov, trust_eu, level){
+        x <- df %>% 
+            select_(trust_natgov, trust_eu, "nuts", "nutslvl") %>%
+            filter(nutslvl == level) %>%
+            select(-nutslvl) %>% 
+            filter_(!all(is.na(trust_natgov), is.na(trust_eu))) %>% 
+            mutate(id0 = substr(nuts, 0, 2)) %>% 
+            select(id0, nuts) %>% 
+            distinct() %>% 
+            arrange(id0) %>% 
+            inner_join(eu_members, by = "id0")
+        return(x)
+}
+
+get_answer_coverage <- function(df, eu_members, trust_natgov, trust_eu) {
+    
+    # NUTS regions that have values on a level
+    t_nuts2 <- get_nuts(df, trust_natgov, trust_eu, level = 2)
+    
+    t_nuts1 <- get_nuts(df, trust_natgov, trust_eu, level = 1)
+    
+    t_nuts0 <- df %>%
+        select_(trust_natgov, trust_eu, "nuts", "nutslvl") %>%
+        filter(nutslvl == 0) %>%
+        select(-nutslvl) %>% 
+        filter_(!all(is.na(trust_natgov), is.na(trust_eu))) %>% 
+        select(nuts) %>% 
+        distinct() %>% 
+        arrange(nuts) %>% 
+        inner_join(eu_members, by = c("nuts" = "id0")) %>% 
+        mutate(x = 1)
+    
+    ### NUTS2
+    # nr. of nuts2 regions with missing values per country
+    no_id2 <- nuts_2010_levels %>% 
+        inner_join(eu_members, by = "id0") %>% 
+        select(-id3) %>% 
+        full_join(t_nuts2, by = c("id2" = "nuts")) %>% 
+        filter(is.na(id0.y)) %>% 
+        distinct() %>% 
+        group_by(id0.x) %>% 
+        summarise(n_nuts2_missing = n()) %>% 
+        rename(id0 = id0.x)
+    
+    # nr. nuts2 regions with values per country
+    has_id2 <- nuts_2010_levels %>% 
+        inner_join(eu_members, by = "id0") %>% 
+        select(-id3) %>% 
+        full_join(t_nuts2, by = c("id2" = "nuts")) %>% 
+        filter(!is.na(id0.y)) %>%
+        distinct() %>% 
+        group_by(id0.x) %>% 
+        summarise(n_nuts2 = n()) %>% 
+        rename(id0 = id0.x)
+    
+    # total nuts2 regions
+    total_id2 <- nuts_2010_levels %>% 
+        select(id0, id2) %>% 
+        distinct() %>% 
+        group_by(id0) %>% 
+        summarise(t_nuts2 = n())
+    
+    ### NUTS1
+    # nr. of nuts1 regions with missing values per country
+    no_id1 <- nuts_2010_levels %>% 
+        inner_join(eu_members, by = "id0") %>% 
+        select(-id3, -id2) %>% 
+        full_join(t_nuts1, by = c("id1" = "nuts")) %>% 
+        filter(is.na(id0.y)) %>% 
+        distinct() %>% 
+        group_by(id0.x) %>% 
+        summarise(n_nuts1_missing = n()) %>% 
+        rename(id0 = id0.x)
+    
+    # nr. of nuts1 regions with values per country
+    has_id1 <- nuts_2010_levels %>% 
+        inner_join(eu_members, by = "id0") %>% 
+        select(-id3, -id2) %>% 
+        full_join(t_nuts1, by = c("id1" = "nuts")) %>% 
+        filter(!is.na(id0.y)) %>% 
+        distinct() %>% 
+        group_by(id0.x) %>% 
+        summarise(n_nuts1 = n()) %>% 
+        rename(id0 = id0.x)
+    
+    # total nuts1 regions
+    total_id1 <- nuts_2010_levels %>% 
+        select(id0, id1) %>% 
+        distinct() %>% 
+        group_by(id0) %>% 
+        summarise(t_nuts1 = n())
+    
+    ### NUTS0
+    # nr. of nuts0 regions with missing values per country
+    has_id0 <- nuts_2010_levels %>% 
+        inner_join(eu_members, by = "id0") %>% 
+        select(-id3, -id2, -id1) %>% 
+        full_join(t_nuts0, by = c("id0" = "nuts")) %>% 
+        distinct()
+    
+    
+    # percent of regions with values per country
+    coverage_id <- total_id2 %>% 
+        full_join(no_id2, by = "id0") %>% 
+        full_join(has_id2, by = "id0") %>% 
+        mutate(p_nuts2_coverage = case_when(is.na(.$n_nuts2_missing) ~ 100.0,
+                                            is.na(.$n_nuts2) ~ 0.0,
+                                            TRUE ~ round((.$n_nuts2 / 
+                                                          .$t_nuts2)*100))) %>% 
+        full_join(total_id1, by = "id0") %>% 
+        full_join(has_id1, by = "id0") %>% 
+        full_join(no_id1, by = "id0") %>% 
+        mutate(p_nuts1_coverage = case_when(is.na(.$n_nuts1_missing) ~ 100.0,
+                                            is.na(.$n_nuts1) ~ 0.0,
+                                           TRUE ~ round((.$n_nuts1 /
+                                                         .$t_nuts1)*100))) %>% 
+        full_join(has_id0, by = "id0") %>% 
+        mutate(p_nuts0_coverage = case_when(is.na(.$x) ~ 0.0,
+                                            TRUE ~ 100.0)) %>% 
+        inner_join(eu_members, by = "id0") %>% 
+        rename(nr_n2_total = t_nuts2,
+               nr_n2_miss = n_nuts2_missing,
+               nr_n2_has = n_nuts2,
+               p_n2_has = p_nuts2_coverage,
+               nr_n1_total = t_nuts1,
+               nr_n1_miss = n_nuts1_missing,
+               nr_n1_has = n_nuts1,
+               p_n1_has = p_nuts1_coverage,
+               p_n0_has = p_nuts0_coverage) %>% 
+        select(id0, nr_n2_total, nr_n2_miss, nr_n2_has, p_n2_has, nr_n1_total,
+               nr_n1_miss, nr_n1_has, p_n1_has, p_n0_has)
+    
+    # replace NA with 0 for easier interpretation
+    coverage_id[is.na(coverage_id)] <- 0
+    
+    return(coverage_id)
+}
+
+coverage_2015 <- get_answer_coverage(trust_raw_2015, eu_members,  "qa8a_8", "qa8a_10")
+coverage_2016 <- get_answer_coverage(trust_raw_2016, eu_members,  "qa8a_7", "qa8a_9")
+
+```
+
+```{r trust_response, include=FALSE}
+# compute the number of responses per region
+nt_response <- nt %>%
+    group_by(id2) %>% 
+    summarise(nr_resp = sum(n))
+eu_response <- eu %>%
+    group_by(id2) %>% 
+    summarise(nr_resp = sum(n))
+
+# check if nt and eu has the same amount of responses (would be surprising if not...)
+all(nt_response["nr_resp"] == eu_response["nr_resp"])
+```
+
+Table column names:
+
++ nr_n2_total: number of NUTS2 regions in the country
++ nr_n2_miss: number of NUTS2 regions with missing values
++ nr_n2_has: number of NUTS2 regions with values
++ p_n2_has: percentage of NUTS2 regions with values
+
+```{r, results='asis', echo=FALSE, out.width='90%'}
+# knitr::kable(coverage_2015, caption = "The coverage of the answers per NUTS regions, survey Nov. 2015")
+pander(coverage_2015, split.table = 80, style = 'rmarkdown', caption = "The coverage of the answers per NUTS regions, survey Nov. 2015")
+```
+
+
+```{r, results='asis', echo=FALSE, out.width='90%'}
+# knitr::kable(coverage_2016, caption = "The coverage of the answers per NUTS regions for the questions \"Trust in national government and/or EU\", survey May 2016")
+pander(coverage_2016, split.table = 80, style = 'rmarkdown', caption = "The coverage of the answers per NUTS regions for the questions \"Trust in national government and/or EU\", survey May 2016")
+```
+
+
+```{r, echo=FALSE, out.width='\\textwidth', fig.height=10}
+nt_resp_rg <- nuts_2013_rg %>% 
+    inner_join(nt_response, by = c("nuts_id" = "id2")) 
+
+ggplot(nt_resp_rg) +
+    geom_sf(data = nt_resp_rg, aes(fill = nr_resp)) +
+    coord_sf(crs = st_crs(nt_resp_rg)) +
+    scale_fill_gradient(low = "#eff3ff", high = "#08519c") +
+    labs(fill = "Nr. of responses",
+         title = "Nr. of responses per region",
+         subtitle = "Responses for the questions about trust in the national government or the EU",
+         caption = "Data: Eurobarometer 85.2 May 2016 ZA 6694, \n
+         84.3 Nov 2015 ZA 6643; \n
+         © EuroGeographics")
+```
+
+
+
+```{r clean_up3, include=FALSE, message=FALSE, warning=FALSE}
+# clean up
+rm(nt, eu, trust_pct, trust_raw_2015, trust_raw_2016, nt_2015, nt_2016, nt_incl, nt_missing, coverage_2015, coverage_2016, eu_2015, eu_2016, eu_incl, eu_missing, nt_resp_rg, nt_response, eu_response)
+gc()
+```
+

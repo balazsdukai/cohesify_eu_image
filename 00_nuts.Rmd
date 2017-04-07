@@ -1,0 +1,461 @@
+# NUTS
+
+Spatial data of the NUTS administrative boundaries are obtained from EuroGeographics.
+
+**Source**\
+[http://ec.europa.eu/eurostat/web/gisco/geodata/reference-data/administrative-units-statistical-units](http://ec.europa.eu/eurostat/web/gisco/geodata/reference-data/administrative-units-statistical-units)
+
+**Copyright**\
+*When data downloaded from this page is used in any printed or electronic publication, in addition to any other provisions applicable to the whole Eurostat website, data source will have to be acknowledged in the legend of the map and in the introductory page of the publication with the following copyright notice:*
+
+© EuroGeographics for the administrative boundaries
+
+
+## EU member states
+
+```{r eu_members}
+eu_members <- data.frame(id0 = c("AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE",
+                                 "FI", "FR", "DE", "EL", "HU", "IE", "IT", "LV",
+                                 "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SE",
+                                 "SI", "SK", "ES", "UK"),
+                         stringsAsFactors = FALSE)
+```
+
+
+## Version 2006
+
+Load shapefile into database. 
+
+```{bash shp2pgsql_2006, echo=FALSE, include=FALSE, eval=FALSE}
+shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2006_03M_SH/shape/data/NUTS_RG_03M_2006 public.nuts_2006_poly | psql -h localhost -d nuts -U bdukai
+```
+
+Generate ID hieararchy based on NUTS levels.
+
+```{sql id_hieararchy_2006, include=FALSE, eval=FALSE}
+CREATE
+    OR REPLACE VIEW nuts_2006_levels AS WITH lvl0 AS(
+        SELECT
+            nuts_id id0
+        FROM
+            nuts_2006_poly
+        WHERE
+            stat_levl_ = 0
+    ),
+    lvl1 AS(
+        SELECT
+            a.*,
+            b.nuts_id id1
+        FROM
+            lvl0 a
+        JOIN nuts_2006_poly b ON
+            a.id0 = SUBSTRING( b.nuts_id, 1, 2 )
+        WHERE
+            b.stat_levl_ = 1
+    ),
+    lvl2 AS(
+        SELECT
+            a.*,
+            b.nuts_id id2
+        FROM
+            lvl1 a
+        JOIN nuts_2006_poly b ON
+            a.id1 = SUBSTRING( b.nuts_id, 1, 3 )
+        WHERE
+            b.stat_levl_ = 2
+    ) SELECT
+        a.*,
+        b.nuts_id id3
+    FROM
+        lvl2 a
+    JOIN nuts_2006_poly b ON
+        a.id2 = SUBSTRING( b.nuts_id, 1, 4 )
+    WHERE
+        b.stat_levl_ = 3
+    ORDER BY
+        a.id0,
+        a.id1,
+        a.id2,
+        b.nuts_id;
+```
+
+```{r nuts_2006, include=FALSE}
+nuts_2006_levels <- dbReadTable(db, "nuts_2006_levels")
+```
+
+Generate point in the regions for version translation. The provided centroids are not sufficient, because they lie outside of island-polygons.
+
+```{sql points_2006, echo=FALSE, include=FALSE, eval=FALSE}
+CREATE
+    TABLE
+        IF NOT EXISTS nuts_2006_pt AS SELECT
+            gid,
+            nuts_id,
+            stat_levl_,
+            st_pointonsurface(geom) geom
+        FROM
+            nuts_2006_poly;
+
+ALTER TABLE
+    nuts_2006_pt ADD PRIMARY KEY(gid);
+
+CREATE
+    INDEX nuts_2006_pt_geom_idx ON
+    nuts_2006_pt
+        USING gist(geom);
+```
+
+
+## Version 2010
+
+The level-relations are derived from the region's names, because *FR91* (a colonial island) is not covered by higher level regions, thus spatial search misses it.
+
+```{bash shp2pgsql_2010, echo=FALSE, include=FALSE, eval=FALSE}
+shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2010_03M_SH/Data/NUTS_RG_03M_2010 public.nuts_2010_poly | psql -h localhost -d nuts -U bdukai
+```
+
+Generate ID hieararchy based on NUTS levels. Spatial search doesn't work for NUTS2010, because FR91 is not covered by higher level regions, probably a data error.
+
+```{sql id_hierarchy_2010, include=FALSE, eval=FALSE}
+CREATE
+    OR REPLACE VIEW nuts_2010_levels AS WITH lvl0 AS(
+        SELECT
+            nuts_id id0
+        FROM
+            nuts_2010_poly
+        WHERE
+            stat_levl_ = 0
+    ),
+    lvl1 AS(
+        SELECT
+            a.*,
+            b.nuts_id id1
+        FROM
+            lvl0 a
+        JOIN nuts_2010_poly b ON
+            a.id0 = SUBSTRING( b.nuts_id, 1, 2 )
+        WHERE
+            b.stat_levl_ = 1
+    ),
+    lvl2 AS(
+        SELECT
+            a.*,
+            b.nuts_id id2
+        FROM
+            lvl1 a
+        JOIN nuts_2010_poly b ON
+            a.id1 = SUBSTRING( b.nuts_id, 1, 3 )
+        WHERE
+            b.stat_levl_ = 2
+    ) SELECT
+        a.*,
+        b.nuts_id id3
+    FROM
+        lvl2 a
+    JOIN nuts_2010_poly b ON
+        a.id2 = SUBSTRING( b.nuts_id, 1, 4 )
+    WHERE
+        b.stat_levl_ = 3
+    ORDER BY
+        a.id0,
+        a.id1,
+        a.id2,
+        b.nuts_id;
+```
+
+```{r nuts_2010, include=FALSE}
+nuts_2010_levels <- dbReadTable(db, "nuts_2010_levels")
+```
+
+Generate point in the regions for version translation. 
+
+```{sql points_2010, include=FALSE, eval=FALSE}
+CREATE
+    TABLE
+        IF NOT EXISTS nuts_2010_pt AS SELECT
+            gid,
+            nuts_id,
+            stat_levl_,
+            st_pointonsurface(geom) geom
+        FROM
+            nuts_2010_poly;
+
+ALTER TABLE
+    nuts_2010_pt ADD PRIMARY KEY(gid);
+
+CREATE
+    INDEX nuts_2010_pt_geom_idx ON
+    nuts_2010_pt
+        USING gist(geom);
+```
+
+The countries that are not included in the Excel sheet `/NUTS conundrum/2006-2010.xlsx` but included in the shapefile are *"CH" "IS" "TR" "LI" "NO" "ME" "MK" "HR"*.
+
+## Version 2013
+
+```{bash read_shp_2013, shp2pgsql_2013, echo=FALSE, include=FALSE, eval=FALSE}
+shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2013_03M_SH/data/NUTS_RG_03M_2013 public.nuts_2013_poly | psql -h localhost -d nuts -U bdukai
+```
+
+Generate ID levels for NUTS 2013.
+
+```{sql id_hierarchy_2013, include=FALSE,  eval=FALSE}
+CREATE
+    OR REPLACE VIEW nuts_2013_levels AS WITH lvl0 AS(
+        SELECT
+            nuts_id id0
+        FROM
+            nuts_2013_poly
+        WHERE
+            stat_levl_ = 0
+    ),
+    lvl1 AS(
+        SELECT
+            a.*,
+            b.nuts_id id1
+        FROM
+            lvl0 a
+        JOIN nuts_2013_poly b ON
+            a.id0 = SUBSTRING( b.nuts_id, 1, 2 )
+        WHERE
+            b.stat_levl_ = 1
+    ),
+    lvl2 AS(
+        SELECT
+            a.*,
+            b.nuts_id id2
+        FROM
+            lvl1 a
+        JOIN nuts_2013_poly b ON
+            a.id1 = SUBSTRING( b.nuts_id, 1, 3 )
+        WHERE
+            b.stat_levl_ = 2
+    ) SELECT
+        a.*,
+        b.nuts_id id3
+    FROM
+        lvl2 a
+    JOIN nuts_2013_poly b ON
+        a.id2 = SUBSTRING( b.nuts_id, 1, 4 )
+    WHERE
+        b.stat_levl_ = 3
+    ORDER BY
+        a.id0,
+        a.id1,
+        a.id2,
+        b.nuts_id;
+```
+
+Generate point in the regions for version translation. 
+
+```{sql points_2013, include=FALSE,  eval=FALSE}
+CREATE
+    TABLE
+        IF NOT EXISTS nuts_2013_pt AS SELECT
+            gid,
+            nuts_id,
+            stat_levl_,
+            st_pointonsurface(geom) geom
+        FROM
+            nuts_2013_poly;
+
+ALTER TABLE
+    nuts_2013_pt ADD PRIMARY KEY(gid);
+
+CREATE
+    INDEX nuts_2013_pt_geom_idx ON
+    nuts_2013_pt
+        USING gist(geom);
+```
+
+Get the view.
+
+```{r nuts_2013, include=FALSE}
+# get only EU countries
+nuts_2013_levels <- dbReadTable(db, "nuts_2013_levels") %>% 
+    inner_join(eu_members, by = "id0")
+```
+
+Get regions for plotting.
+
+```{r nuts_2013_rg, include=FALSE}
+nuts_2013_rg <- st_read_db(db, query = "select nuts_id, geom from nuts_2013_poly where stat_levl_ = 2;")
+```
+
+
+NUTS0/1 regions in the EU that only consist of a single NUTS2 region.
+
+```{r nuts_single_lvl2, include=FALSE}
+# NUTS1 regions that only consist of a single NUTS2 region
+nuts_2013_single_n1 <- nuts_2013_levels %>% 
+    select(-id3) %>% 
+    distinct() %>% 
+    group_by(id0) %>% 
+    count(id1) %>% 
+    filter(n == 1) %>% 
+    rename(incl = n) %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    ungroup()
+
+# NUTS0 regions that only consist of a single NUTS2 region
+nuts_2013_single_n0 <- nuts_2013_levels %>% 
+    select(-id3) %>% 
+    distinct() %>% 
+    group_by(id0) %>% 
+    summarise(n_id0 = n()) %>% 
+    filter(n_id0 == 1) %>%
+    inner_join(eu_members, by = "id0") %>% 
+    rename(incl = n_id0) %>% 
+    ungroup()
+```
+
+
+## Translate 2006 <-> 2010
+
+NUTS3 regions are translated from version 2006 to 2010 by using a two-step spatial search. Firstly, the 2010 regions that were *merged* from 2006 to 2010 are spatially matched to 2006 regions, secondly the 2006 regions that were *split* from 2006 to 2010 are spatially matched to 2010 regions. Name changes and boundary shifts are also detected in the process. 
+
+
+```{sql tr_2006_2010_sql, include=FALSE,  eval=FALSE}
+CREATE
+    OR replace VIEW nuts_translate_2006_2010 AS WITH nuts_match AS(
+        -- case of merge in version 2006
+        SELECT
+            a.nuts_id nuts2006,
+            b.nuts_id nuts2010
+        FROM
+            nuts_2006_pt a
+        JOIN nuts_2010_poly b ON
+            st_within(
+                a.geom,
+                b.geom
+            )
+        WHERE
+            b.stat_levl_ = 3
+            AND a.stat_levl_ = 3
+    UNION
+        -- case of split in version 2006
+        SELECT
+            b.nuts_id nuts2006,
+            a.nuts_id nuts2010
+        FROM
+            nuts_2010_pt a
+        JOIN nuts_2006_poly b ON
+            st_within(
+                a.geom,
+                b.geom
+            )
+        WHERE
+            b.stat_levl_ = 3
+            AND a.stat_levl_ = 3
+    ) SELECT
+        *
+    FROM
+        nuts_match
+    ORDER BY
+        nuts2006;
+```
+
+```{r translation_schema, include=FALSE}
+tbl_2010 <- dbReadTable(db, "nuts_translate_2006_2010")
+
+tr_2006_2010 <- nuts_2010_levels %>%
+    inner_join(tbl_2010, by = c("id3" = "nuts2010")) %>% 
+    full_join(nuts_2006_levels, by = c("nuts2006" = "id3"),
+              suffix = c(".2010", ".2006")) %>% 
+    rename(id3.2010 = id3, id3.2006 = nuts2006)
+```
+
+## Translate 2010 <-> 2013
+
+```{sql tr_2010_2013_sql, include=FALSE,  eval=FALSE}
+CREATE
+    OR replace VIEW nuts_translate_2010_2013 AS WITH nuts_match AS(
+        -- case of merge in version 2010
+        SELECT
+            a.nuts_id nuts2010,
+            b.nuts_id nuts2013
+        FROM
+            nuts_2010_pt a
+        JOIN nuts_2013_poly b ON
+            st_within(
+                a.geom,
+                b.geom
+            )
+        WHERE
+            b.stat_levl_ = 3
+            AND a.stat_levl_ = 3
+    UNION
+        -- case of split in version 2010
+        SELECT
+            b.nuts_id nuts2010,
+            a.nuts_id nuts2013
+        FROM
+            nuts_2013_pt a
+        JOIN nuts_2010_poly b ON
+            st_within(
+                a.geom,
+                b.geom
+            )
+        WHERE
+            b.stat_levl_ = 3
+            AND a.stat_levl_ = 3
+    ) SELECT
+        *
+    FROM
+        nuts_match
+    ORDER BY
+        nuts2010;
+```
+
+```{r translation_schema_2013, include=FALSE}
+tbl_2013 <- dbReadTable(db, "nuts_translate_2010_2013")
+
+tr_2010_2013 <- nuts_2013_levels %>%
+    inner_join(tbl_2013, by = c("id3" = "nuts2013")) %>% 
+    full_join(nuts_2010_levels, by = c("nuts2010" = "id3"),
+              suffix = c(".2013", ".2010")) %>% 
+    rename(id3.2013 = id3, id3.2010 = nuts2010)
+```
+
+## Population
+
+Data source: Eurostats\
+Nomenclature: NUTS2013 level 2 (only 2013 possible) [http://ec.europa.eu/eurostat/statistics-explained/index.php/Population_statistics_at_regional_level#NUTS](http://ec.europa.eu/eurostat/statistics-explained/index.php/Population_statistics_at_regional_level#NUTS)
+
+Population data from 2014 is used to generate region weights, because until 2014 *FRA, SI, UKI* were not recording population values.
+
+```{r pop_in, include=FALSE}
+# Read data
+pop_2014 <- read.xlsx("~/Data/COHESIFY/Population/demo_r_d2jan.xls",
+                      sheetIndex = 1, colIndex = c(1,10), startRow = 11,
+                      endRow = 488, header = TRUE, stringsAsFactors = FALSE,
+                      colClasses = c("character", "numeric")) %>% 
+    rename(nuts_2013 = GEO.TIME, population = X2014) %>% 
+    mutate(x = substr(nuts_2013, 0, 2), nutslvl = nchar(nuts_2013)-2) %>% 
+    inner_join(eu_members, by = c("x" = "id0")) %>% 
+    select(-x)
+```
+
+Generate region weights.
+
+```{r pop_weight, include=FALSE}
+nuts_2013_weight <- pop_2014 %>% 
+    filter(nutslvl == 2) %>% 
+    inner_join(nuts_2013_levels, by = c("nuts_2013" = "id2")) %>% 
+    rename(id2.2013 = nuts_2013) %>% 
+    select(id0, id1, id2.2013, population) %>% 
+    distinct()
+
+for (n2 in nuts_2013_weight$id2.2013) {
+    id0 <- unique(nuts_2013_weight[nuts_2013_weight$id2.2013 == n2, "id0"])
+    tp <- pop_2014[pop_2014$nuts_2013 == id0, "population"]
+    rp <- nuts_2013_weight[nuts_2013_weight$id2.2013 == n2, "population"]
+    w <- rp / tp
+    nuts_2013_weight[nuts_2013_weight$id2.2013 == n2, "weight"] <- w
+}
+```
+
+```{r clean_up1, include=FALSE}
+rm(pop_2014, tbl_2013, tbl_2010, id0, tp, rp, w, n2)
+gc()
+```

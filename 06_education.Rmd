@@ -1,0 +1,59 @@
+# Educational attainment (tertiary)
+
+**Data source:** Eurostat
+
+**Last update:** 2016-10-13
+
+**Date of access:** 2016-12-04
+
+**Nomenclature:** NUTS 2013 level 2
+
+**Variables used:**
+
++ Population aged 25-64 with tertiary education, NUTS 2 regions (%) [`edat_lfse_04`]
+
+Description: [http://ec.europa.eu/eurostat/cache/metadata/en/edat1_esms.htm](http://ec.europa.eu/eurostat/cache/metadata/en/edat1_esms.htm)
+
+The data are calculated as annual averages of quarterly EU Labour Force Survey data (EU-LFS).
+
+Up to the reference year 2008, the data source (EU-LFS) is, where necessary, adjusted and enriched in various ways, in accordance with the specificities of an indicator, including the following:
+
++ correction of the main breaks in the LFS series,
++ estimation of the missing values, i.e. in case of missing quarters, annual results and EU aggregates are estimated using adjusted quarterly national labour force survey data or interpolations of the EU-LFS data with reference to the available quarter(s).
+
+Details on the adjustments are available in [CIRCABC](https://circabc.europa.eu/faces/jsp/extension/wai/navigation/container.jsp).
+
+## Data processing
+
+1. Select values for NUTS2 regions
+
+```{r edu_load, include=FALSE, cache=TRUE}
+edu_clean <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Education/Population aged 25-64 with tertiary education (EUROSTAT) edat_lfse_04.xls",
+    sheetIndex = 1, colIndex = c(1,4), startRow = 12, endRow = 497, 
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(id2.2013 = NUTS.code.2013, education_2013 = X2013) %>% 
+    filter(nchar(id2.2013) >= 4) %>% 
+    distinct() %>% 
+    inner_join(nuts_2013_levels, by = c("id2.2013" = "id2")) %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    select(id2.2013, education_2013) %>% 
+    distinct()
+```
+
+A sample of the output:
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(edu_clean), caption = "Population aged 25-64 with tertiary education, NUTS 2013 level 2 regions (%) [edat_lfse_04]")
+```
+
+## Variable encoding
+
+**education_2013:** Population aged 25-64 with tertiary education
+
+## Data quality
+
+No potential errors were introduced during the processing.
+
+

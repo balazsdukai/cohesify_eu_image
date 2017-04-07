@@ -1,0 +1,47 @@
+# Unemployment
+
+**Data source:** ESPON Database Portal – Europe 2020 Index based on the distances to 4 of the 8 Europe 2020 Strategy
+
+**Date of survey:** 2013
+
+**Date of access:** 2016-12-02 12:32:59
+
+**Nomenclature:** NUTS 2013 level 2
+
+**Variables used:**
+
++ Unemployment rate of persons aged 15-74 (`lfst_r_lfu3rt`)
+
+## Data processing
+
+1. Select values for NUTS2 regions
+
+```{r unemp_load, include=FALSE, cache=TRUE}
+unemp_clean <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Employment and poverty/Unemployment rates by sex, age and NUTS 2 regions (_) lfst_r_lfu3rt.xls",
+    sheetIndex = 1, colIndex = c(1,4), startRow = 11, endRow = 502, 
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(id2.2013 = GEO.TIME, unemployment_2013 = X2013) %>% 
+    filter(nchar(id2.2013) >= 4) %>% 
+    distinct() %>% 
+    inner_join(nuts_2013_levels, by = c("id2.2013" = "id2")) %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    select(id2.2013, unemployment_2013) %>% 
+    distinct() %>% 
+    mutate(unemp.incl = 1)
+```
+
+A sample of the output:
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(unemp_clean), caption = "Unemployment rate of persons aged 15-74, NUTS 2013 level 2")
+```
+
+## Variable encoding
+
+**unemployment_2013:** Unemployment rate of persons aged 15-74
+
+## Data quality
+
+No potential errors were introduced during the processing.

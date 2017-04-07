@@ -1,0 +1,95 @@
+# Population change, net migration
+
+**Data source:** Eurostat
+
+**Last update:** 2016-10-28
+
+**Date of access:** 2016-12-04
+
+**Nomenclature:** NUTS 2010/2013 level 3
+
+**Variables used:**
+
++ Population change - Demographic balance and crude rates at regional level (NUTS 3) [`demo_r_gind3`]
+
+## Data processing
+
+1. The data set uses a NUTS 2010 nomenclature but still the NUTS1 regions *EL5* and *EL6* are present, duplicating the values of their corresponding NUTS 2010 regions (*EL1* and *EL2*). Therefore *EL5* and *EL6* are removed.
+
+Similarly in case of France, the NUTS 2010 regions *FR91, FR92, FR93, FR94* are present, and also their corresponding NUTS 2013 versions *FRA2, FRA3, FRA4*, while *FRA1, FRA5* is missing value. The NUTS 2013 regions present novel data compared to their 2010 version. Because the majority of the data correspond to NUTS 2010 regions, the NUTS 2013 regions of France are removed.
+
+2. Select the NUTS 2 level values and translate to NUTS 2 2013.
+
+```{r migr_load, include=FALSE, cache=TRUE}
+migr_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Migration/Crude rate of net migration plus statistical adjustment demo_r_gind3.xls",
+    sheetIndex = 1, colIndex = c(1,4), startRow = 9, endRow = 2119, 
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(nuts_2010 = GEO.TIME, migration_2013 = X2013)
+```
+
+```{r migr_prep, include=FALSE}
+migr_prep <- migr_raw %>% 
+    filter(nchar(nuts_2010) == 4) %>% 
+    mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
+    inner_join(eu_members, by = "id0") %>% 
+    select(-id0)
+
+# The 2013 regions that in the data but are not NUTS 2010 regions
+n2013 <- migr_prep %>% 
+    full_join(nuts_2010_levels, by = c("nuts_2010" = "id2")) %>% 
+    select(-id3) %>% 
+    distinct() %>% 
+    filter(is.na(id0))
+
+# The 2010 regions that are in the data but are not NUTS 2013 regions
+n2010 <- migr_prep %>% 
+    full_join(nuts_2013_levels, by = c("nuts_2010" = "id2")) %>% 
+    select(-id3) %>% 
+    distinct() %>% 
+    filter(is.na(id0))
+
+# Put it together and filter out 2013 regions
+migr_2010 <- migr_prep %>%
+    filter(!(nuts_2010 %in% n2013$nuts_2010)) %>% 
+    arrange(nuts_2010) %>% 
+    rename(id2 = nuts_2010)
+
+# translate to 2013
+migr_clean <- migr_2010 %>% 
+    inner_join(tr_2010_2013, by = c("id2" = "id2.2010")) %>% 
+    select(id2.2013, migration_2013) %>% 
+    distinct() %>% 
+    mutate(migration.incl = 1)
+```
+
+```{r migr_check, include=FALSE}
+# Check if all EU members are present, should give 28
+migr_clean %>%
+    mutate(x = substr(id2.2013, 0, 2)) %>% 
+    select(x) %>% 
+    n_distinct()
+```
+
+A sample of the output:
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(migr_clean), caption = "Population change, NUTS 2013 level 2")
+```
+
+## Variable encoding
+
+**migration_2013:** Population change
+
+## Data quality
+
+The following aspects might influence the quality of the data:
+
++ NUTS 2 2010 regions were translated to NUTS 2 2013 regions
+
+```{r clean_up6, include=FALSE, message=FALSE, warning=FALSE}
+rm(migr_raw, migr_2010, n2013, n2010, migr_prep)
+gc()
+```
+

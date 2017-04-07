@@ -1,0 +1,103 @@
+---
+title: "Consolidating regression variables for EU identity inference"
+author: "Balázs Dukai (<balazs.dukai@gmail.com>) [www.linkedin.com/in/balazsdukai](www.linkedin.com/in/balazsdukai)"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+  html_notebook:
+    number_sections: yes
+    toc: yes
+  html_document: default
+subtitle: COHESIFY - The Impact of Cohesion Policy on EU Identification and is part
+  of Horizon 2020 programme
+papersize: a4paper
+---
+
+```{r install_sf_gg, eval=FALSE, include=FALSE}
+# install ggplot2 branch that can plot simple features
+devtools::install_github("tidyverse/ggplot2",ref="sf")
+```
+
+
+```{r setup, include=FALSE, message=FALSE}
+library(haven)
+library(xlsx)
+library(pander)
+library(RPostgreSQL)
+library(tidyverse)
+library(sf)
+db <- dbConnect(RPostgreSQL::PostgreSQL(), dbname = "nuts", user="bdukai", host="localhost")
+knitr::opts_chunk$set(connection = "db")
+options(knitr.table.format ='pandoc')
+```
+
+\pagebreak
+
+In this notebook I am consolidating the independent variables to NUTS level 2, version 2010.
+
+```{r test-main, child = '00_nuts.Rmd', cache=TRUE}
+```
+
+```{r test-main, child = '01_border_typology.Rmd'}
+```
+
+```{r test-main, child = '02_trust.Rmd'}
+```
+
+```{r test-main, child = '03_qog.Rmd'}
+```
+
+```{r test-main, child = '04_struct.Rmd'}
+```
+
+```{r test-main, child = '05_unemp.Rmd'}
+```
+
+```{r test-main, child = '06_education.Rmd'}
+```
+
+```{r test-main, child = '07_soc_progr.Rmd'}
+```
+
+```{r test-main, child = '08_migration.Rmd'}
+```
+
+```{r test-main, child = '09_access_to_soc.Rmd'}
+```
+
+```{r test-main, child = '10_agriculture.Rmd'}
+```
+
+# Region weighting
+
+```{r join_everything, eval=FALSE}
+eu_vars <- typ_border_clean %>% 
+    full_join(trust_clean, by = "id2.2013") %>% 
+    full_join(qog_clean, by = "id2.2013") %>% 
+    full_join(struct_2007_clean, by = "id2.2013") %>% 
+    full_join(struct_2014_clean, by = "id2.2013") %>%
+    full_join(unemp_clean, by = "id2.2013") %>%
+    full_join(edu_clean, by = "id2.2013") %>%
+    full_join(soc_clean, by = "id2.2013") %>%
+    full_join(migr_clean, by = "id2.2013") %>%
+    full_join(acc2soc_clean, by = "id2.2013") %>%
+    full_join(agr_clean, by = "id2.2013") %>%
+    full_join(eu_id_clean, by = "id2.2013") %>%
+    full_join(select(nuts_2013_weight, id2.2013, weight), by = "id2.2013")
+
+table(eu_vars$id2.2013)
+```
+
+Region *FI1D* has multiple values for the Structural funds variables.
+
+Variables that were weighted:
+
++ Trust in national government / EU
++ Quality of Government
++ Social progress
++ Migration
++ Access to social services
++ Share of population in agriculture
+

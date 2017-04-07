@@ -1,0 +1,192 @@
+# Quality of Government
+
+**Data Source:** THE QOG EU REGIONAL DATASET 2016
+
+Charron, Nicholas, Stefan Dahlberg, Sören Holmberg, Bo Rothstein, Anna Khomenko & Richard Svensson. 2016. The Quality of Government EU Regional Dataset, version Sep16. University of Gothenburg: The Quality of Government Institute, [http://www.qog.pol.gu.se](http://www.qog.pol.gu.se)
+
+Charron, Nicholas, Lewis Dijkstra and Victor Lapuente. 2015. Mapping the Regional Divide in Europe: A Measure for Assessing Quality of Government in 206 European Regions. Social Indicators Research. vol 122 (2): 315-346.
+
+Charron, Nicholas, Lewis Dijkstra and Victor Lapuente. 2014. Regional Governance Matters: Quality of Government within European Union Member States. Regional Studies, 48(1): 68-90.
+
+Charron, Nicholas, Victor Lapuente and Bo Rothstein. 2013. Quality of Government and Corruption from a European Perspective: A Comparative Study of Good Government in EU Regions. Edward Elgar Publishing.
+
+**Date of survey:** 2013
+
+**Nomenclature:** NUTS 2006 level 2
+
+**Variables used:** `eqi_eqi` (`EQI 2013`)
+
+*Description:* The European Quality of Government Index - the overall EQI regional estimates. The final regional index was the result of aggregating the scores for the three pillars for each region. **To calculate the final score for each country and region, the regional scores for each of the countries included in the 2013 survey were aggregated by regional population weights.** This national average of regional scores is used to elucidate the extent to which regionx in country conforms to the national QoG standard, which is done by subtracting the national average from each region's score. A positive score for a region implies that it is above the national mean; conversely, a negative score indicates that the regions QoG performance is below the national mean. In the final index, this regional score is added to the national WGI score, so that each region's score is adjusted; centered around the WGI. In combining the regional and WGI data, none of the regional variation within countries is lost.
+
+## Data processing
+
+1. Regions are mapped from NUTS 2 2006 to 2010 and then to 2013. The comparison of the translated to the original reveals that the *EQI 2013* variables in fact use a mix of NTUS 2006/2010 regions, because *HR* is already mapped as NUTS 2010, while the rest of the countries as 2006. The error is corrected by manually assigning the value to *HR04*.
+
+2. Get values for the NUTS2 regions, including the values from those NUTS0/1 regions that are composed of only a single NUTS2 region.
+
+3. Input missing values into NUTS2 regions from higher level NUTS regions depending on their availability, starting with NUTS1. These NUTS2 regions are marked to exclude from the strict analysis.
+
+```{r read_qog, include=FALSE, cache=TRUE}
+qog_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/QoG/publishing-the-eqi-data2013.xlsx",
+    sheetName = "EQI2013", colIndex = c(1,9), startRow = 4, endRow = 251, 
+    header = TRUE, stringsAsFactors = FALSE) %>% 
+    rename(nuts_2006 = NUTS, eqi_2013 = EQI.2013)
+```
+
+```{r qog_nuts2, include=FALSE}
+# get nuts0 regions of input with values
+qog_raw_nuts0 <- qog_raw %>% 
+    select(nuts_2006, eqi_2013) %>% 
+    filter(nchar(nuts_2006) == 2)
+
+# get eqi_2013 values with nuts0 2013 regions
+qog_raw_nuts0_2013 <-  qog_raw_nuts0 %>% 
+    inner_join(select(tr_2006_2010, id0.2006, id0.2010),
+               by = c("nuts_2006" = "id0.2006")) %>% 
+    inner_join(select(tr_2010_2013, id0.2010, id0.2013), by = "id0.2010") %>% 
+    inner_join(eu_members, by = c("id0.2013" = "id0")) %>% 
+    select(id0.2013, eqi_2013) %>% 
+    distinct()
+
+# get nuts1 regions of input with values
+qog_raw_nuts1 <- qog_raw %>% 
+    select(nuts_2006, eqi_2013) %>% 
+    filter(nchar(nuts_2006) == 3) %>% 
+    mutate(id0.2006 = substr(nuts_2006, 0, 2))
+
+# get eqi_2013 values with nuts1 2013 regions
+qog_raw_nuts1_2013 <-  qog_raw_nuts1 %>% 
+    inner_join(select(tr_2006_2010, id1.2006, id1.2010),
+               by = c("nuts_2006" = "id1.2006")) %>% 
+    inner_join(select(tr_2010_2013, id1.2010, id1.2013, id0.2013), by = "id1.2010") %>% 
+    inner_join(eu_members, by = c("id0.2013" = "id0")) %>% 
+    select(id1.2013, eqi_2013) %>% 
+    distinct()
+
+# Get NUTS2 regions of input
+qog_raw_nuts2 <- qog_raw %>% 
+    select(nuts_2006) %>% 
+    filter(nchar(nuts_2006) == 4) %>% 
+    mutate(id1.2006 = substr(nuts_2006, 0, 3), id0.2006 = substr(nuts_2006, 0, 2))
+
+# check where are the gaps in the regions, where are nuts2 values missing
+qog_prep <- select(qog_raw_nuts0, -eqi_2013) %>% 
+    full_join(select(qog_raw_nuts1, -eqi_2013), by = c("nuts_2006" = "id0.2006")) %>% 
+    rename(id0.2006 = nuts_2006, id1.2006 = nuts_2006.y) %>% 
+    full_join(qog_raw_nuts2, by = "id0.2006") %>% 
+    select(-id1.2006.y) %>% 
+    rename(id1.2006 = id1.2006.x, id2.2006 = nuts_2006)
+
+# these regions have no nuts2 values
+no_lvl2 <- qog_prep %>%
+    filter(is.na(id2.2006)) %>% 
+    distinct() %>% 
+    select(-id2.2006)
+
+# translate nuts0 2006 regions that consist of a single nuts2 region to nuts2 2013 regions
+n0 <- no_lvl2 %>% 
+    select(id0.2006) %>% 
+    inner_join(qog_raw, by = c("id0.2006" = "nuts_2006")) %>% 
+    inner_join(select(tr_2006_2010, id0.2006, id0.2010), by = "id0.2006") %>% 
+    distinct() %>% 
+    inner_join(nuts_2013_single_n0, by = c("id0.2010" = "id0")) %>% 
+    inner_join(tr_2010_2013, by = "id0.2010") %>% 
+    rename(qog.incl = incl) %>% 
+    select(id2.2013, eqi_2013, qog.incl) %>% 
+    distinct()
+
+# translate nuts1 2006 regions that consist of a single nuts2 region to nuts2 2013 regions
+n1 <- no_lvl2 %>% 
+    select(id1.2006) %>% 
+    inner_join(qog_raw, by = c("id1.2006" = "nuts_2006")) %>% 
+    inner_join(select(tr_2006_2010, id1.2006, id1.2010), by = "id1.2006") %>% 
+    distinct() %>% 
+    inner_join(nuts_2013_single_n1, by = c("id1.2010" = "id1")) %>% 
+    inner_join(tr_2010_2013, by = "id1.2010") %>% 
+    rename(qog.incl = incl) %>% 
+    select(id2.2013, eqi_2013, qog.incl) %>% 
+    distinct()
+```
+
+```{r qog_translate, include=FALSE}
+# only the NUTS2 regions that have value
+qog_translate <- qog_raw %>% 
+    filter(nchar(nuts_2006) >= 4) %>% 
+    inner_join(tr_2006_2010, by = c("nuts_2006" = "id2.2006")) %>%
+    rename(id2.2006 = nuts_2006) %>% 
+    select(id2.2010, id2.2006, eqi_2013) %>% 
+    distinct()
+```
+
+```{r check_qog, include=FALSE}
+# regions that have no match between 2006 and 2010
+no_match <- full_join(qog_translate, qog_raw_nuts2,
+                      by = c("id2.2006" = "nuts_2006")) %>% 
+    filter(is.na(eqi_2013)) %>% 
+    arrange(id2.2006)
+```
+
+```{r correct_qog, include=FALSE}
+# fill in the missing value for the only region
+qog_translate[qog_translate$id2.2010 == "HR04", "eqi_2013"] <- qog_raw[qog_raw$nuts_2006 == "HR04", "eqi_2013"]
+```
+
+```{r qog_translate_2013, include=FALSE}
+# strict filtering to include on the nuts2 regions that have value;
+# exclude missing values;
+# include regions where nuts0/1 regions contains only 1 nuts2 region;
+# join nuts2 regions with missing values and mark them exclude;
+# input missing values into nuts2 regions from higher level nuts regions
+# depending on their availability, try nuts1 first;
+qog_clean <- qog_translate %>%
+    inner_join(tr_2010_2013, by = "id2.2010") %>% 
+    select(id2.2013, eqi_2013) %>% 
+    distinct() %>% 
+    mutate(qog.incl = case_when(!is.na(.$eqi_2013) ~ 1,
+                                is.na(.$eqi_2013) ~ 0)) %>% 
+    bind_rows(n0) %>% 
+    bind_rows(n1) %>% 
+    full_join(select(nuts_2013_levels, -id3), by = c("id2.2013" = "id2")) %>% 
+    distinct() %>% 
+    full_join(qog_raw_nuts1_2013, by = c("id1" = "id1.2013"),
+              suffix = c(".n2", ".n1")) %>% 
+    full_join(qog_raw_nuts0_2013, by = c("id0" = "id0.2013")) %>% 
+    rename(eqi_2013.n0 = eqi_2013) %>% 
+    mutate(eqi_2013.n2 = case_when((is.na(.$eqi_2013.n2) & is.na(.$eqi_2013.n1)) ~ .$eqi_2013.n0,
+                                  (is.na(.$eqi_2013.n2) & !is.na(.$eqi_2013.n1)) ~ .$eqi_2013.n1,
+                                  TRUE ~ .$eqi_2013.n2)) %>% 
+    rename(eqi_2013 = eqi_2013.n2) %>% 
+    select(id2.2013, eqi_2013, qog.incl) %>% 
+    arrange(id2.2013)
+qog_clean[is.na(qog_clean)] <- 0
+```
+
+A sample of the output:
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(qog_clean), caption = "Sample of Quality of Government variable")
+```
+
+## Variable encoding
+
+**eqi_2013:** Quality of government indicator
+
+## Data quality
+
+The following aspects might influence the quality of the data:
+
++ Some countries have not NUTS2 level data. There are 110 NUTS2 regions with originally missing values. In this cases higher level (NUTS0/1) values are inputed.
+
+The list of NUTS2 regions with originally missing values:
+
+```{r, echo=FALSE}
+unique(qog_clean[qog_clean$qog.incl == 0, "id2.2013"])
+```
+
+
+```{r clean_up4, include=FALSE, message=FALSE, warning=FALSE}
+rm(qog_translate, no_match, qog_raw, qog_raw_nuts2, qog_prep, qog_raw_nuts0, qog_raw_nuts0_2013, qog_raw_nuts1, qog_raw_nuts1_2013, n0, n1, no_lvl2)
+gc()
+```
+

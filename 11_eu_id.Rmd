@@ -1,0 +1,30 @@
+# EU Identification
+
+```{r eu_id_load, include=FALSE}
+eu_id_clean <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/EU Identification/EU Identification typology (COHESIFY Output 2.4a).xlsx",
+    sheetIndex = 1, colIndex = c(1,3,4), startRow = 1, endRow = 273, 
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric", "character")) %>% 
+    rename(id2.2010 = NUTS_2_.2010., eu_id_type_code = Type_Code,
+           eu_id_type = EU_Id_Type) %>% 
+    inner_join(tr_2010_2013, by = "id2.2010") %>% 
+    select(id2.2013, eu_id_type_code, eu_id_type) %>% 
+    distinct()
+
+missing <- eu_id_clean %>% 
+    filter(is.na(eu_id_type)) %>% 
+    select(id2.2013) %>% 
+    distinct()
+```
+
+Regions with missing EU identification values:
+
+```{r eu_id_missing}
+knitr::kable(missing)
+```
+
+```{r clean_up8, include=FALSE, message=FALSE, warning=FALSE}
+rm(missing)
+```
+

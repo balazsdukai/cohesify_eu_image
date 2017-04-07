@@ -1,0 +1,73 @@
+# Access to social services
+
+**Data source:** Eurostat / European Atlas of Services of General Interest / Social Services of General Interest
+
+**Date of survey:** NA
+
+**Nomenclature:** NUTS 2006 level 2
+
+**Variables used:**
+
++ SGI-aggregated
+
+## Data processing
+
+1. The record for *Saarland* was missing its NUTS code thus it was manually added.
+
+2. Translate NUTS 2006 to 2010 then to 2013.
+
+```{r acc2soc_load, include=FALSE, cache=TRUE}
+acc2soc_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/Access to services/SGI typology.xlsx",
+    sheetIndex = 1, colIndex = c(1,7), startRow = 1, endRow = 287, 
+    header = TRUE, stringsAsFactors = FALSE) %>% 
+    rename(nuts_2006 = NUTS2, sgi_aggregated = SGI.aggreg.)
+```
+
+```{r acc2soc_tranlate, include=FALSE}
+acc2soc_translate <- acc2soc_raw %>% 
+    inner_join(tr_2006_2010, by = c("nuts_2006" = "id2.2006")) %>% 
+    rename(id2.2006 = nuts_2006) %>% 
+    select(id2.2010, sgi_aggregated) %>% 
+    distinct() %>% 
+    mutate(x = substr(id2.2010, 0, 2)) %>% 
+    inner_join(eu_members, by = c("x" = "id0"))
+
+acc2soc_clean <- acc2soc_translate %>% 
+    inner_join(tr_2010_2013, by = "id2.2010") %>% 
+    select(id2.2013, sgi_aggregated) %>% 
+    distinct() %>% 
+    mutate(sgi_aggregated.incl = 1)
+```
+
+```{r check_acc2soc, include=FALSE}
+# Check if all EU members are present, should give 28
+acc2soc_translate %>%
+    mutate(x = substr(id2.2010, 0, 2)) %>% 
+    select(x) %>% 
+    distinct()
+```
+
+A sample of the output:
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(head(acc2soc_clean), caption = "Access to social services, NUTS 2013 level 2")
+```
+
+## Variable encoding
+
+**sgi_aggregated:** aggregated social services index
+
+## Data quality
+
+The following aspects might influence the quality of the data:
+
++ NUTS 2 2006 regions were translated to NUTS 2 2013 regions.
+
++ The NUTS0 region *HR* is not present in the data.
+
+```{r clean_up7, include=FALSE, message=FALSE, warning=FALSE}
+rm(acc2soc_translate, acc2soc_raw)
+gc()
+```
+
