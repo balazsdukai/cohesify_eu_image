@@ -419,10 +419,16 @@ tr_2010_2013 <- nuts_2013_levels %>%
 
 ## Population
 
-Data source: Eurostats\
-Nomenclature: NUTS2013 level 2 (only 2013 possible) [http://ec.europa.eu/eurostat/statistics-explained/index.php/Population_statistics_at_regional_level#NUTS](http://ec.europa.eu/eurostat/statistics-explained/index.php/Population_statistics_at_regional_level#NUTS)
+**Data source:** Eurostats
 
-Population data from 2014 is used to generate region weights, because until 2014 *FRA, SI, UKI* were not recording population values.
+**Nomenclature:** NUTS 2013 level 2 (only 2013 possible)
+
+**Variables used:**
+
++ Population on 1 January by age, sex and NUTS 2 region [`demo_r_d2jan`]. Population data from 2014 is used to generate region weights, because until 2014 *FRA, SI, UKI* were not recording population values.
+
+[http://ec.europa.eu/eurostat/statistics-explained/index.php/Population_statistics_at_regional_level#NUTS](http://ec.europa.eu/eurostat/statistics-explained/index.php/Population_statistics_at_regional_level#NUTS)
+
 
 ```{r pop_in, include=FALSE}
 # Read data

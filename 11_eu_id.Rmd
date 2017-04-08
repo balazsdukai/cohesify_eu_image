@@ -1,5 +1,25 @@
 # EU Identification
 
+**Data source:** Internal
+
+**Date of survey:** NA
+
+**Nomenclature:** NUTS 2010 level 2
+
+**Variables used:**
+
++ EU identification
+
+    + 11 – Negative - Neutral
+    + 12 – Negative - Attached
+    + 21 – Neutral - Attached
+    + 22 – Neutral - Neutral
+    + 31 – Positive
+
+## Data processing
+
+1. Translate NUTS 2 2010 to 2013 
+
 ```{r eu_id_load, include=FALSE}
 eu_id_clean <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/EU Identification/EU Identification typology (COHESIFY Output 2.4a).xlsx",
@@ -9,16 +29,26 @@ eu_id_clean <- read.xlsx(
     rename(id2.2010 = NUTS_2_.2010., eu_id_type_code = Type_Code,
            eu_id_type = EU_Id_Type) %>% 
     inner_join(tr_2010_2013, by = "id2.2010") %>% 
-    select(id2.2013, eu_id_type_code, eu_id_type) %>% 
-    distinct()
+    select(id2.2013, eu_id_type_code) %>% 
+    distinct() %>% 
+    mutate(eu_id.incl = case_when(!is.na(.$eu_id_type_code) ~ 1,
+                                  TRUE ~ 0))
 
 missing <- eu_id_clean %>% 
-    filter(is.na(eu_id_type)) %>% 
+    filter(is.na(eu_id_type_code)) %>% 
     select(id2.2013) %>% 
     distinct()
 ```
 
-Regions with missing EU identification values:
+## Variabale encoding
+
+**eu_id_type_code:** EU identification as given above
+
+## Data quality
+
+The following aspects might influence the quality of the data:
+
++ NUTS2 regions with missing values
 
 ```{r eu_id_missing}
 knitr::kable(missing)
