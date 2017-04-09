@@ -70,23 +70,19 @@ struct_2007_prep[is.na(struct_2007_prep)] <- 0
 
 # Translate to 2013;
 # cast to numeric
+# set Cooperation to 1 for DED4 and FI1D
 struct_2007_clean <- struct_2007_prep %>% 
     inner_join(tr_2006_2010, by = c("nuts_2006" = "id2.2006")) %>% 
     select(id2.2010, Competitiveness, Convergence, Cooperation, Multi.Objective) %>% 
-    distinct() %>% 
+    # distinct() %>% 
     inner_join(tr_2010_2013, by = "id2.2010") %>% 
     select(id2.2013, Competitiveness, Convergence, Cooperation, Multi.Objective) %>% 
-    distinct() %>% 
+    # distinct() %>% 
     mutate_each(funs(as.numeric), -id2.2013) %>% 
+    mutate(Cooperation = case_when(.$id2.2013 == "DED4" | .$id2.2013 == "FI1D" ~ 1,
+                               TRUE ~ .$Cooperation)) %>%
+    distinct() %>% 
     mutate(struct_2007.incl = 1)
-
-
-struct_2007_clean %>%
-    mutate(Cooperation = case_when(.$id2.2013 == "DED4" | .$id2.2013 == "FI1D" ~ as.character(1),
-                                   TRUE ~ .$Cooperation)) %>%
-    filter(id2.2013 == "DED4" | id2.2013 == "FI1D") %>%
-    distinct()
-
 ```
 
 ```{r struct_2007_test, include=FALSE, eval=FALSE}
