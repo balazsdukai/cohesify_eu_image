@@ -34,7 +34,12 @@ acc2soc_translate <- acc2soc_raw %>%
     inner_join(eu_members, by = c("x" = "id0"))
 
 acc2soc_clean <- acc2soc_translate %>% 
-    inner_join(tr_2010_2013, by = "id2.2010") %>% 
+    inner_join(
+        filter(
+            select(tr_2010_2013, -id3.2010, -id3.2013),
+            !(id2.2010 == "SI02" & id2.2013 == "SI03")
+            ),
+        by = "id2.2010") %>% 
     select(id2.2013, sgi_aggregated) %>% 
     distinct() %>% 
     mutate(sgi_aggregated.incl = 1)

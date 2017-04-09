@@ -15,6 +15,7 @@
 1. Translate from NUTS 2 2010 to NUTS 2 2013
 
 ```{r soc_load, include=FALSE, cache=TRUE}
+# filter (remove) record where id3.2010 == SI021
 soc_clean <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/Social Progress Index/2016_eu_spi.xlsx",
     sheetIndex = 1, colIndex = c(1,4), startRow = 1, endRow = 273, 
@@ -22,7 +23,12 @@ soc_clean <- read.xlsx(
     colClasses = c("character", "numeric")) %>% 
     rename(nuts_2010 = NUTS.Code.2010,
            soc_idx = European.Union.Regional.Social.Progress.Index) %>% 
-    inner_join(tr_2010_2013, by = c("nuts_2010" = "id2.2010")) %>% 
+    inner_join(
+        filter(
+            select(tr_2010_2013, -id3.2010, -id3.2013),
+            !(id2.2010 == "SI02" & id2.2013 == "SI03")
+            )
+        , by = c("nuts_2010" = "id2.2010")) %>% 
     inner_join(eu_members, by = c("id0.2013" = "id0")) %>% 
     select(id2.2013, soc_idx) %>% 
     distinct() %>% 

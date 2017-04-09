@@ -88,6 +88,12 @@ eu_vars <- typ_border_clean %>%
     full_join(select(nuts_2013_weight, id2.2013, weight), by = "id2.2013")
 ```
 
+```{r}
+n_occur <- data.frame(table(eu_vars$id2.2013))
+n_occur[n_occur$Freq > 1,]
+```
+
+
 Region *FI1D* has multiple values for the Structural funds variables.
 
 Variables that were weighted:
@@ -101,6 +107,10 @@ Variables that were weighted:
 
 # Data quality
 
-Besides the observations specific to each variable, these are generic observations:
+Besides the issues specific to each variable, these issues are generally present at most/all variables:
 
 + The NUTS 2013 level 2 region *FRA5* is a new region, thus it has no corresponding region in the earlier NUTS versions. Thefore the variables have missing values in case they are originally mapped to NUTS regions of 2006/2010 version.
+
++ Between NUTS versions 2010 and 2013 the NUTS3 region *SI035* (in *SI03*) is a merge of *SI021* (in *SI02*) and *SI015* (in *SI01*). Eight out of nine of the 2010 level 3 regions corresponding to the 2013 level 2 region *SI03* were part of the *SI01* 2010 level 2 region. The only exception is *SI021* (from *SI02*). At the time of the sutdy there was no population data available for NUTS 2010 regions that could be used to weight the variables that are translated from NUTS2/3 2010 to NUTS2 2013. Therefore the 2013 region *SI03* is considered to be a name change from *SI01* to *SI03*, ignoring the influence of *SI021*. This affects the variables `sgi_aggregated, migration_2013, eu_id_type_code, soc_idx`.
+
+

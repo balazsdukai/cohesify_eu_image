@@ -58,7 +58,12 @@ migr_2010 <- migr_prep %>%
 
 # translate to 2013
 migr_clean <- migr_2010 %>% 
-    inner_join(tr_2010_2013, by = c("id2" = "id2.2010")) %>% 
+    inner_join(
+        filter(
+            select(tr_2010_2013, -id3.2010, -id3.2013),
+            !(id2.2010 == "SI02" & id2.2013 == "SI03")
+            ),
+        by = c("id2" = "id2.2010")) %>% 
     select(id2.2013, migration_2013) %>% 
     distinct() %>% 
     mutate(migration.incl = 1)

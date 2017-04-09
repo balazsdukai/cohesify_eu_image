@@ -28,7 +28,12 @@ eu_id_clean <- read.xlsx(
     colClasses = c("character", "numeric", "character")) %>% 
     rename(id2.2010 = NUTS_2_.2010., eu_id_type_code = Type_Code,
            eu_id_type = EU_Id_Type) %>% 
-    inner_join(tr_2010_2013, by = "id2.2010") %>% 
+    inner_join(
+        filter(
+            select(tr_2010_2013, -id3.2010, -id3.2013),
+            !(id2.2010 == "SI02" & id2.2013 == "SI03")
+            ),
+        by = "id2.2010") %>% 
     select(id2.2013, eu_id_type_code) %>% 
     distinct() %>% 
     mutate(eu_id.incl = case_when(!is.na(.$eu_id_type_code) ~ 1,

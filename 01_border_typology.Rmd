@@ -127,9 +127,3 @@ The following aspects might influence the quality of the data:
 
 + NUTS 3 2006 regions were translated to NUTS 2 2013 regions
 
-```{r clean_up2, include=FALSE}
-rm(typo_border_regions, border_lvl2, programme, non_programme,
-   partially_programme, x_total_cnt, x_2013_cnt, typ_border_lvl2_clean,
-   typ_border_lvl2_2013)
-gc()
-```

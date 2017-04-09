@@ -362,7 +362,10 @@ tr_2006_2010 <- nuts_2010_levels %>%
     inner_join(tbl_2010, by = c("id3" = "nuts2010")) %>% 
     full_join(nuts_2006_levels, by = c("nuts2006" = "id3"),
               suffix = c(".2010", ".2006")) %>% 
-    rename(id3.2010 = id3, id3.2006 = nuts2006)
+    rename(id3.2010 = id3, id3.2006 = nuts2006) %>% 
+    # select(-id3.2010, -id3.2006) %>% 
+    inner_join(eu_members, by = c("id0.2010" = "id0")) %>% 
+    distinct()
 ```
 
 ## Translate 2010 <-> 2013
@@ -414,7 +417,10 @@ tr_2010_2013 <- nuts_2013_levels %>%
     inner_join(tbl_2013, by = c("id3" = "nuts2013")) %>% 
     full_join(nuts_2010_levels, by = c("nuts2010" = "id3"),
               suffix = c(".2013", ".2010")) %>% 
-    rename(id3.2013 = id3, id3.2010 = nuts2010)
+    rename(id3.2013 = id3, id3.2010 = nuts2010) %>% 
+    # select(-id3.2010, -id3.2013) %>% 
+    filter(!is.na(id0.2013)) %>% 
+    distinct()
 ```
 
 ## Population
