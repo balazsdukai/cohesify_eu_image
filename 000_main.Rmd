@@ -94,13 +94,46 @@ n_occur[n_occur$Freq > 1,]
 ```
 
 ```{r select_vars, include=FALSE}
-# Variable selection
+# Variable weigthing
+eu_vars <- eu_vars %>% 
+    mutate_at(c("trust_natgov", "trust_eu", "eqi_2013", "soc_idx",
+                "migration_2013", "sgi_aggregated", "agr_share"),
+              funs(. * weight))
 
-# remove regions with missing values for the dependent variable (eu_id)
-eu_vars_ri <- eu_vars %>% filter(!is.na(eu_vars$eu_id_type_code))
+# remove regions with missing values for the dependent variable (eu_id);
+# all regions included, even those that contain missing values;
+eu_vars_ri <- eu_vars %>%
+    filter(!is.na(eu_vars$eu_id_type_code)) %>% 
+    select(-ends_with(".incl"))
+# these regions are removed
 eu_vars_ri_n <- eu_vars %>% 
     filter(is.na(eu_vars$eu_id_type_code)) %>% 
     select(id2.2013)
+
+# remove regions that are missing value for any variable;
+eu_vars_no_na <- eu_vars_ri[complete.cases(eu_vars_ri), ]
+# these regions are removed;
+eu_vars_no_na_n <- eu_vars_ri[!complete.cases(eu_vars_ri), "id2.2013"]
+
+# remove all regions where the value for the NUTS2 region is a generalization of
+# NUTS0/1 values, because of missing data on the NUTS2 level;
+eu_vars_include_n <- eu_vars %>% 
+    filter(typ_border.incl == 1 &
+           trust.incl == 1 &
+           qog.incl == 1 &
+           struct_2007.incl == 1 &
+           struct_2014.incl == 1 &
+           unemp.incl == 1 &
+           edu.incl == 1 &
+           soc_idx.incl == 1 &
+           migration.incl == 1 &
+           sgi_aggregated.incl == 1 &
+           agr.incl == 1 &
+           eu_id.incl == 1) %>% 
+    select(-ends_with(".incl"))
+# these regions are removed;
+eu_vars_exclude <- setdiff(nuts_2013_levels$id2, eu_vars_include_n$id2.2013)
+
 ```
 
 

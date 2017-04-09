@@ -39,7 +39,8 @@ edu_clean <- read.xlsx(
     inner_join(nuts_2013_levels, by = c("id2.2013" = "id2")) %>% 
     inner_join(eu_members, by = "id0") %>% 
     select(id2.2013, education_2013) %>% 
-    distinct()
+    distinct() %>% 
+    mutate(edu.incl = 1)
 ```
 
 A sample of the output:
