@@ -210,7 +210,8 @@ trust_pct %>%
              color = "Historical part:",
              title = "Level of trust in the national government and the EU",
              subtitle = "Germany per NUTS1 regions",
-             caption = "Data: Eurobarometer 85.2 May 2016 ZA 6694 + 84.3 Nov 2015 ZA 6643 / ICPSR;")
+             caption = "Data: Eurobarometer 85.2 May 2016 ZA 6694 + 84.3 Nov 2015 ZA 6643 / ICPSR; \n
+             © EuroGeographics for the administrative boundaries")
 ```
 
 ```{r trust_plot, echo=FALSE}
@@ -224,7 +225,8 @@ trust_pct %>%
              color = "Country",
              title = "Level of trust in the national government and the EU",
              subtitle = "EU members per NUTS2 regions",
-             caption = "Data: Eurobarometer 85.2 May 2016 ZA 6694 + 84.3 Nov 2015 ZA 6643 / ICPSR;")
+             caption = "Data: Eurobarometer 85.2 May 2016 ZA 6694 + 84.3 Nov 2015 ZA 6643 / ICPSR; \n
+             © EuroGeographics for the administrative boundaries")
 ```
 
 ```{r, results='asis', echo=FALSE}
@@ -434,7 +436,7 @@ ggplot(nt_resp_rg) +
          subtitle = "Responses for the questions about trust in the national government or the EU",
          caption = "Data: Eurobarometer 85.2 May 2016 ZA 6694, \n
          84.3 Nov 2015 ZA 6643; \n
-         © EuroGeographics")
+         © EuroGeographics for the administrative boundaries")
 ```
 
 

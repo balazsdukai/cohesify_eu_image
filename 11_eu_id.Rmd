@@ -55,8 +55,8 @@ The following aspects might influence the quality of the data:
 
 + NUTS2 regions with missing values
 
-```{r eu_id_missing}
-knitr::kable(missing)
+```{r eu_id_missing, results='asis', echo=FALSE}
+knitr::kable(missing, caption = "NUTS2 regions with missing values for the variable EU identification")
 ```
 
 ```{r clean_up8, include=FALSE, message=FALSE, warning=FALSE}

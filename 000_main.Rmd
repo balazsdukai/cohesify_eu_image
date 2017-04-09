@@ -35,40 +35,66 @@ options(knitr.table.format ='pandoc')
 
 \pagebreak
 
-In this notebook I am consolidating the independent variables to NUTS level 2, version 2010.
 
-```{r test-main, child = '00_nuts.Rmd', cache=TRUE}
+```{r test-main, child = '00_nuts.Rmd'}
 ```
+
+\pagebreak
 
 ```{r test-main, child = '01_border_typology.Rmd'}
 ```
 
+\pagebreak
+
 ```{r test-main, child = '02_trust.Rmd'}
 ```
+
+\pagebreak
 
 ```{r test-main, child = '03_qog.Rmd'}
 ```
 
+\pagebreak
+
 ```{r test-main, child = '04_struct.Rmd'}
 ```
+
+\pagebreak
 
 ```{r test-main, child = '05_unemp.Rmd'}
 ```
 
+\pagebreak
+
 ```{r test-main, child = '06_education.Rmd'}
 ```
+
+\pagebreak
 
 ```{r test-main, child = '07_soc_progr.Rmd'}
 ```
 
+\pagebreak
+
 ```{r test-main, child = '08_migration.Rmd'}
 ```
+
+\pagebreak
 
 ```{r test-main, child = '09_access_to_soc.Rmd'}
 ```
 
+\pagebreak
+
 ```{r test-main, child = '10_agriculture.Rmd'}
 ```
+
+\pagebreak
+
+```{r test-main, child = '11_eu_id.Rmd'}
+```
+
+\pagebreak
 
 # Region weighting
 
