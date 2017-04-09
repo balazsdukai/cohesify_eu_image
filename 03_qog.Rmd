@@ -56,13 +56,18 @@ qog_raw_nuts1 <- qog_raw %>%
     mutate(id0.2006 = substr(nuts_2006, 0, 2))
 
 # get eqi_2013 values with nuts1 2013 regions
+# take the average value for EL5 and EL6
 qog_raw_nuts1_2013 <-  qog_raw_nuts1 %>% 
-    inner_join(select(tr_2006_2010, id1.2006, id1.2010),
+    inner_join(select(tr_2006_2010, id1.2006, id1.2010, id2.2010),
                by = c("nuts_2006" = "id1.2006")) %>% 
-    inner_join(select(tr_2010_2013, id1.2010, id1.2013, id0.2013), by = "id1.2010") %>% 
+    distinct() %>%
+    inner_join(select(tr_2010_2013, id1.2010, id2.2010, id1.2013, id2.2013, id0.2013), by = "id2.2010") %>% 
     inner_join(eu_members, by = c("id0.2013" = "id0")) %>% 
-    select(id1.2013, eqi_2013) %>% 
-    distinct()
+    select(id1.2013, id2.2013, eqi_2013) %>% 
+    distinct() %>% 
+    group_by(id1.2013) %>% 
+    summarise(eqi_2013 = mean(eqi_2013)) %>% 
+    ungroup()
 
 # Get NUTS2 regions of input
 qog_raw_nuts2 <- qog_raw %>% 
@@ -190,6 +195,8 @@ unique(qog_clean[qog_clean$qog.incl == 0, "id2.2013"])
 ```
 
 + Merge of *FI1A* + *FI13* = *FI1D*. The value for *FI1D* is the arithmetic average of *FI1A* (1.595620) and *FI13* (1.484862).
+
++ The 2013 regions *EL5* and *EL6* are composed of NUTS 2010 level 2 regions that belong to multiple NUTS1 region. Therefore `eqi_2013` value for *EL5* is computed as the arithmetic average of *EL11, EL12, EL13, EL21* (2010), the value for *EL6* is the arithmetic average of *EL14, EL22, EL23, EL24, EL25*.
 
 ```{r clean_up4, include=FALSE, message=FALSE, warning=FALSE}
 rm(qog_translate, no_match, qog_raw, qog_raw_nuts2, qog_prep, qog_raw_nuts0, qog_raw_nuts0_2013, qog_raw_nuts1, qog_raw_nuts1_2013, n0, n1, no_lvl2, fi1_avg)

@@ -93,9 +93,6 @@ n_occur <- data.frame(table(eu_vars$id2.2013))
 n_occur[n_occur$Freq > 1,]
 ```
 
-
-Region *FI1D* has multiple values for the Structural funds variables.
-
 Variables that were weighted:
 
 + Trust in national government / EU
