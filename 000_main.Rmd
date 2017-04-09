@@ -99,3 +99,8 @@ Variables that were weighted:
 + Access to social services
 + Share of population in agriculture
 
+# Data quality
+
+Besides the observations specific to each variable, these are generic observations:
+
++ The NUTS 2013 level 2 region *FRA5* is a new region, thus it has no corresponding region in the earlier NUTS versions. Thefore the variables have missing values in case they are originally mapped to NUTS regions of 2006/2010 version.
