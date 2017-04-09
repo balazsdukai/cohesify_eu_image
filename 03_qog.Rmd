@@ -160,6 +160,11 @@ qog_clean <- qog_translate %>%
     select(id2.2013, eqi_2013, qog.incl) %>% 
     arrange(id2.2013)
 qog_clean[is.na(qog_clean)] <- 0
+
+# merge of FI1A + FI13 = FI1D, take their arithmetic avg. as value for FI1D
+fi1_avg <- mean(qog_clean[qog_clean$id2.2013 == "FI1D", "eqi_2013"])
+qog_clean[qog_clean$id2.2013 == "FI1D", "eqi_2013"] <- fi1_avg
+qog_clean <-  distinct(qog_clean)
 ```
 
 A sample of the output:
@@ -184,9 +189,10 @@ The list of NUTS2 regions with originally missing values:
 unique(qog_clean[qog_clean$qog.incl == 0, "id2.2013"])
 ```
 
++ Merge of *FI1A* + *FI13* = *FI1D*. The value for *FI1D* is the arithmetic average of *FI1A* (1.595620) and *FI13* (1.484862).
 
 ```{r clean_up4, include=FALSE, message=FALSE, warning=FALSE}
-rm(qog_translate, no_match, qog_raw, qog_raw_nuts2, qog_prep, qog_raw_nuts0, qog_raw_nuts0_2013, qog_raw_nuts1, qog_raw_nuts1_2013, n0, n1, no_lvl2)
+rm(qog_translate, no_match, qog_raw, qog_raw_nuts2, qog_prep, qog_raw_nuts0, qog_raw_nuts0_2013, qog_raw_nuts1, qog_raw_nuts1_2013, n0, n1, no_lvl2, fi1_avg)
 gc()
 ```
 

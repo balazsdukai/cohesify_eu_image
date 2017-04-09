@@ -43,6 +43,11 @@ acc2soc_clean <- acc2soc_translate %>%
     select(id2.2013, sgi_aggregated) %>% 
     distinct() %>% 
     mutate(sgi_aggregated.incl = 1)
+
+# merge of FI1A + FI13 = FI1D, take their arithmetic avg. as value for FI1D
+fi1_avg <- mean(acc2soc_clean[acc2soc_clean$id2.2013 == "FI1D", "sgi_aggregated"])
+acc2soc_clean[acc2soc_clean$id2.2013 == "FI1D", "sgi_aggregated"] <- fi1_avg
+acc2soc_clean <-  distinct(acc2soc_clean)
 ```
 
 ```{r check_acc2soc, include=FALSE}
@@ -70,6 +75,8 @@ The following aspects might influence the quality of the data:
 + NUTS 2 2006 regions were translated to NUTS 2 2013 regions.
 
 + The NUTS0 region *HR* is not present in the data.
+
++ Merge of *FI1A* + *FI13* = *FI1D*. The value for *FI1D* is the arithmetic average of *FI1A* (-0.93) and *FI13* (-1.18).
 
 ```{r clean_up7, include=FALSE, message=FALSE, warning=FALSE}
 rm(acc2soc_translate, acc2soc_raw)
