@@ -186,7 +186,7 @@ knitr::kable(head(qog_clean), caption = "Sample of Quality of Government variabl
 
 The following aspects might influence the quality of the data:
 
-+ Some countries have not NUTS2 level data. There are 110 NUTS2 regions with originally missing values. In this cases higher level (NUTS0/1) values are inputed.
++ Some countries have not NUTS2 level data. There are 110 NUTS2 regions with originally missing values. In this cases higher level (NUTS0/1) values are imputed.
 
 The list of NUTS2 regions with originally missing values:
 

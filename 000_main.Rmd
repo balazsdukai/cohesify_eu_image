@@ -11,7 +11,7 @@ output:
     toc: yes
   html_document: default
 subtitle: COHESIFY - The Impact of Cohesion Policy on EU Identification and is part
-  of Horizon 2020 programme
+  of Horizon 2020 program
 papersize: a4paper
 ---
 
@@ -88,11 +88,6 @@ eu_vars <- typ_border_clean %>%
     full_join(select(nuts_2013_weight, id2.2013, weight), by = "id2.2013")
 ```
 
-```{r}
-n_occur <- data.frame(table(eu_vars$id2.2013))
-n_occur[n_occur$Freq > 1,]
-```
-
 ```{r select_vars, include=FALSE}
 # Variable weigthing
 eu_vars <- eu_vars %>% 
@@ -109,11 +104,13 @@ eu_vars_ri <- eu_vars %>%
 eu_vars_ri_n <- eu_vars %>% 
     filter(is.na(eu_vars$eu_id_type_code)) %>% 
     select(id2.2013)
+write_csv(eu_vars_ri, path = "~/Development/cohesify/results/eu_all.csv")
 
 # remove regions that are missing value for any variable;
 eu_vars_no_na <- eu_vars_ri[complete.cases(eu_vars_ri), ]
 # these regions are removed;
 eu_vars_no_na_n <- eu_vars_ri[!complete.cases(eu_vars_ri), "id2.2013"]
+write_csv(eu_vars_no_na, path = "~/Development/cohesify/results/eu_no_missing.csv")
 
 # remove all regions where the value for the NUTS2 region is a generalization of
 # NUTS0/1 values, because of missing data on the NUTS2 level;
@@ -133,11 +130,12 @@ eu_vars_include_n <- eu_vars %>%
     select(-ends_with(".incl"))
 # these regions are removed;
 eu_vars_exclude <- setdiff(nuts_2013_levels$id2, eu_vars_include_n$id2.2013)
+write_csv(eu_vars_include_n, path = "~/Development/cohesify/results/eu_include.csv")
 
 ```
 
 
-Variables that were weighted:
+Variables that were weighted with the population of 2014 per NUTS2 region:
 
 + Trust in national government / EU
 + Quality of Government
@@ -150,8 +148,42 @@ Variables that were weighted:
 
 Besides the issues specific to each variable, these issues are generally present at most/all variables:
 
-+ The NUTS 2013 level 2 region *FRA5* is a new region, thus it has no corresponding region in the earlier NUTS versions. Thefore the variables have missing values in case they are originally mapped to NUTS regions of 2006/2010 version.
++ The NUTS 2013 level 2 region *FRA5* is a new region, thus it has no corresponding region in the earlier NUTS versions. Therefore the variables have missing values in case they are originally mapped to NUTS regions of 2006/2010 version.
 
-+ Between NUTS versions 2010 and 2013 the NUTS3 region *SI035* (in *SI03*) is a merge of *SI021* (in *SI02*) and *SI015* (in *SI01*). Eight out of nine of the 2010 level 3 regions corresponding to the 2013 level 2 region *SI03* were part of the *SI01* 2010 level 2 region. The only exception is *SI021* (from *SI02*). At the time of the sutdy there was no population data available for NUTS 2010 regions that could be used to weight the variables that are translated from NUTS2/3 2010 to NUTS2 2013. Therefore the 2013 region *SI03* is considered to be a name change from *SI01* to *SI03*, ignoring the influence of *SI021*. This affects the variables `sgi_aggregated, migration_2013, eu_id_type_code, soc_idx`.
++ Between NUTS versions 2010 and 2013 the NUTS3 region *SI035* (in *SI03*) is a merge of *SI021* (in *SI02*) and *SI015* (in *SI01*). Eight out of nine of the 2010 level 3 regions corresponding to the 2013 level 2 region *SI03* were part of the *SI01* 2010 level 2 region. The only exception is *SI021* (from *SI02*). At the time of the study there was no population data available for NUTS 2010 regions that could be used to weight the variables that are translated from NUTS2/3 2010 to NUTS2 2013. Therefore the 2013 region *SI03* is considered to be a name change from *SI01* to *SI03*, ignoring the influence of *SI021*. This affects the variables `sgi_aggregated, migration_2013, eu_id_type_code, soc_idx`.
+
+# Output
+
+Due to the large number of NUTS2 regions with missing values at many variables, three outputs are prepared:
+
+**`eu_all.csv`**
+
+All regions included, even those that contain missing values for the independent variables. Regions are excluded that are missing values for the dependent variable `eu_id_typ_code`.
+
+Contains 261/276 NUTS2 regions. Excluded regions are:
+
+```{r, echo=FALSE}
+eu_vars_ri_n$id2.2013
+```
+
+**`eu_no_missing.csv`**
+
+Regions are removed that are missing value for any variable.
+
+Contains 251/276 NUTS2 regions. Excluded regions are those listed in the previous output and:
+
+```{r, echo=FALSE}
+eu_vars_no_na_n
+```
+
+**`eu_include.csv`**
+
+Removed all regions where the value for the NUTS2 region is a generalization of NUTS0/1 values, because of missing data on the NUTS2 level.
+
+Contains 125/276 NUTS2 regions. Excluded regions are:
+
+```{r, echo=FALSE}
+eu_vars_exclude
+```
 
 

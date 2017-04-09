@@ -1,6 +1,6 @@
 # Territorial typology à border regions
 
-**Data source:** Programme documents of *Directorate-General for Regional Policy, Enlargement and External Relations*; For the full description of the study see the Regional Focus paper [n° 01/2011 : Regional typologies: a compilation](http://ec.europa.eu/regional_policy/archive/information/focus/index_en.cfm)
+**Data source:** Program documents of *Directorate-General for Regional Policy, Enlargement and External Relations*; For the full description of the study see the Regional Focus paper [n° 01/2011 : Regional typologies: a compilation](http://ec.europa.eu/regional_policy/archive/information/focus/index_en.cfm)
 
 **Date of survey:** 2007-2013
 
@@ -11,10 +11,10 @@
 Variable encoding in the original data set:
 
 + 0 – No program area
-+ 1 – Programme area
-+ 9 – Programme area (partly)
++ 1 – Program area
++ 9 – Program area (partly)
 
-As described in Regional Focus No. 1/2011. The NUTS 3-based selection of border regions refers to the regions participating in the core areas of cross-border cooperation programmes in the programming period 2007-2013. Due to NUTS boundary changes, some current NUTS 3 regions are only partly eligible as programme areas.
+As described in Regional Focus No. 1/2011. The NUTS 3-based selection of border regions refers to the regions participating in the core areas of cross-border cooperation programs in the programming period 2007-2013. Due to NUTS boundary changes, some current NUTS 3 regions are only partly eligible as program areas.
 
 This variable will become *regions that **participated** in the core areas of cross-border cooperation programmes in the programming period 2007-2013*. Because the values are from 2009, thus they use NUTS 2006 (not 2010), and they refer to the programming period 2007-2013.
 
@@ -22,7 +22,7 @@ This variable will become *regions that **participated** in the core areas of cr
 
 1. Join the NUTS3 2006 variable to the NUTS2-3 2010 regions using the 2006 <-> 2010 translation schema, then translate to NUTS 2013.
 
-2. The aggregation of NUTS3 to NUTS2 is achieved by computing the precentage of *No programme / Programme / Programme (partly)* NUTS3 regions in the corresponding NUTS2 2013 regions.
+2. The aggregation of NUTS3 to NUTS2 is achieved by computing the percentage of *No programme / Programme / Programme (partly)* NUTS3 regions in the corresponding NUTS2 2013 regions.
 
  
 ```{r border_in, include=FALSE, cache=TRUE}

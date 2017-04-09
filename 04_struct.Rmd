@@ -165,7 +165,7 @@ For programming period 2007-2013:
 
 **Multi.Objective:** `1` – region is part of the objective *Multi Objective*, or not `0`
 
-For porgramming period 2014-2020:
+For programming period 2014-2020:
 
 **Less.Developed:** `1` – region is part of the class *Less developed regions (GDP per inhabitant, < 75)*, or not `0`
 
@@ -182,7 +182,7 @@ The following aspects might influence the quality of the data:
 
 + The data set for the Structural Funds period 2007-2013 contains NUTS 2010 regions for *HR*, while NUTS 2006 for other countries.
 
-+ The NUTS 2013 region *FI1D* is a merge of the NUTS 2006 regions *FI13* and *FI1A*. Both of these 2006 regions were part of the *Competitiveness* objective, but *FI1A* was also part of the *Cooperation* objective. Therefore after version translation the region *FI1D* has both `0` and `1` for the *Cooperation* variable. Similarly, the NUTS 2013 region *DED4* is a merge of the NUTS 2006 regions *DED1* and *DED3* where *DED1* was part of the *Cooperation* objective while *DED3* was not. In both cases the corresponding NUTS 2013 region recieves `1` for the *Cooperation* variable and the record of `0` *Cooperation* is deleted.
++ The NUTS 2013 region *FI1D* is a merge of the NUTS 2006 regions *FI13* and *FI1A*. Both of these 2006 regions were part of the *Competitiveness* objective, but *FI1A* was also part of the *Cooperation* objective. Therefore after version translation the region *FI1D* has both `0` and `1` for the *Cooperation* variable. Similarly, the NUTS 2013 region *DED4* is a merge of the NUTS 2006 regions *DED1* and *DED3* where *DED1* was part of the *Cooperation* objective while *DED3* was not. In both cases the corresponding NUTS 2013 region receives `1` for the *Cooperation* variable and the record of `0` *Cooperation* is deleted.
 
 + The data set for the Structural Funds period 2007-2013 does not contain values for the regions: 
 

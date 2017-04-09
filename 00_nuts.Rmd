@@ -30,7 +30,7 @@ Load shapefile into database.
 shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2006_03M_SH/shape/data/NUTS_RG_03M_2006 public.nuts_2006_poly | psql -h localhost -d nuts -U bdukai
 ```
 
-Generate ID hieararchy based on NUTS levels.
+Generate ID hierarchy based on NUTS levels.
 
 ```{sql id_hieararchy_2006, include=FALSE, eval=FALSE}
 CREATE
@@ -114,7 +114,7 @@ The level-relations are derived from the region's names, because *FR91* (a colon
 shp2pgsql -s 4258 -g geom -I ~/Data/NUTS/NUTS_2010_03M_SH/Data/NUTS_RG_03M_2010 public.nuts_2010_poly | psql -h localhost -d nuts -U bdukai
 ```
 
-Generate ID hieararchy based on NUTS levels. Spatial search doesn't work for NUTS2010, because FR91 is not covered by higher level regions, probably a data error.
+Generate ID hierarchy based on NUTS levels. Spatial search doesn't work for NUTS2010, because FR91 is not covered by higher level regions, probably a data error.
 
 ```{sql id_hierarchy_2010, include=FALSE, eval=FALSE}
 CREATE

@@ -10,7 +10,7 @@
 
 **Variable used:**
 
-+ Employment in technology and knowledge-intensive sectors by NUTS 2 regions and sex (from 2008 onwards, NACE Rev. 2) [`htec_emp_reg2`] / Agriculture, forestry and fishing; mining and quarrying [Percentage of total employment]
++ Employment in technology and knowledge-intensive sectors by NUTS 2 regions and sex (from 2008 onward, NACE Rev. 2) [`htec_emp_reg2`] / Agriculture, forestry and fishing; mining and quarrying [Percentage of total employment]
 
 ## Data processing
 
@@ -100,9 +100,9 @@ knitr::kable(head(agr_clean), caption = "Share of population employed in agricul
 
 The following aspects might influence the quality of the data:
 
-+ The NUTS2 regions below are missing values. For these regions the corresponding NUTS1 value is inputed if available, otherwise the corresponding NUTS0 value.
++ The NUTS2 regions below are missing values. For these regions the corresponding NUTS1 value is imputed if available, otherwise the corresponding NUTS0 value.
 
-The NUTS2 regions that needed value inputation from higher level regions are:
+The NUTS2 regions that needed value imputation from higher level regions are:
 
 
 ```{r agr_missing_table, results='asis', echo=FALSE}

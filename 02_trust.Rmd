@@ -33,7 +33,7 @@ In order to increase the reliability of the the variables, the two survey result
 
 2. Mark those NUTS2 regions that have no value, but only their upper level regions contain values.
 
-3. Count the number of responses per region per response (*1/2/3*) and compute the precentage of positive (*1*) responses per region. The answer *DK (3)* counts as negative response.
+3. Count the number of responses per region per response (*1/2/3*) and compute the percentage of positive (*1*) responses per region. The answer *DK (3)* counts as negative response.
 
 4. If a region has values from *either* of the surveys, it will be included in the strict analysis.
 

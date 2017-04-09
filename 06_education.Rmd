@@ -16,7 +16,7 @@ Description: [http://ec.europa.eu/eurostat/cache/metadata/en/edat1_esms.htm](htt
 
 The data are calculated as annual averages of quarterly EU Labour Force Survey data (EU-LFS).
 
-Up to the reference year 2008, the data source (EU-LFS) is, where necessary, adjusted and enriched in various ways, in accordance with the specificities of an indicator, including the following:
+Up to the reference year 2008, the data source (EU-LFS) is, where necessary, adjusted and enriched in various ways, in accordance with the specifics of an indicator, including the following:
 
 + correction of the main breaks in the LFS series,
 + estimation of the missing values, i.e. in case of missing quarters, annual results and EU aggregates are estimated using adjusted quarterly national labour force survey data or interpolations of the EU-LFS data with reference to the available quarter(s).
