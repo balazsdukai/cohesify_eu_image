@@ -72,7 +72,7 @@ In this notebook I am consolidating the independent variables to NUTS level 2, v
 
 # Region weighting
 
-```{r join_everything, eval=FALSE}
+```{r join_everything, include=FALSE, eval=FALSE}
 eu_vars <- typ_border_clean %>% 
     full_join(trust_clean, by = "id2.2013") %>% 
     full_join(qog_clean, by = "id2.2013") %>% 
@@ -86,8 +86,6 @@ eu_vars <- typ_border_clean %>%
     full_join(agr_clean, by = "id2.2013") %>%
     full_join(eu_id_clean, by = "id2.2013") %>%
     full_join(select(nuts_2013_weight, id2.2013, weight), by = "id2.2013")
-
-table(eu_vars$id2.2013)
 ```
 
 Region *FI1D* has multiple values for the Structural funds variables.
