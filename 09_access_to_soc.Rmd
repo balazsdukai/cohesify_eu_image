@@ -28,10 +28,11 @@ acc2soc_raw <- read.xlsx(
 acc2soc_translate <- acc2soc_raw %>% 
     inner_join(tr_2006_2010, by = c("nuts_2006" = "id2.2006")) %>% 
     rename(id2.2006 = nuts_2006) %>% 
-    select(id2.2010, sgi_aggregated) %>% 
-    distinct() %>% 
+    group_by(id2.2010) %>% 
+    summarise(sgi_aggregated = mean(sgi_aggregated)) %>% 
     mutate(x = substr(id2.2010, 0, 2)) %>% 
-    inner_join(eu_members, by = c("x" = "id0"))
+    inner_join(eu_members, by = c("x" = "id0")) %>% 
+    ungroup()
 
 acc2soc_clean <- acc2soc_translate %>% 
     inner_join(
@@ -43,11 +44,6 @@ acc2soc_clean <- acc2soc_translate %>%
     select(id2.2013, sgi_aggregated) %>% 
     distinct() %>% 
     mutate(sgi_aggregated.incl = 1)
-
-# merge of FI1A + FI13 = FI1D, take their arithmetic avg. as value for FI1D
-fi1_avg <- mean(acc2soc_clean[acc2soc_clean$id2.2013 == "FI1D", "sgi_aggregated"])
-acc2soc_clean[acc2soc_clean$id2.2013 == "FI1D", "sgi_aggregated"] <- fi1_avg
-acc2soc_clean <-  distinct(acc2soc_clean)
 ```
 
 ```{r check_acc2soc, include=FALSE}
@@ -76,7 +72,9 @@ The following aspects might influence the quality of the data:
 
 + The NUTS0 region *HR* is not present in the data.
 
-+ Merge of *FI1A* + *FI13* = *FI1D*. The value for *FI1D* is the arithmetic average of *FI1A* (-0.93) and *FI13* (-1.18).
++ Merge of *FI1A* + *FI13* = *FI1D*. The value for *FI1D* is the average of *FI1A* and *FI13* values, weighted with the number of NUTS3 regions within each NUTS2 region.
+
++ Merge of *DE41* + *DE42* = *DE40*. Boundary shift for *DED4* (2010) so it includes one NUTS3 region from *DED3* (2006). The value for both *DE40* and *DED4* is computed with the same process as in the previous step.
 
 ```{r clean_up7, include=FALSE, message=FALSE, warning=FALSE}
 rm(acc2soc_translate, acc2soc_raw)
