@@ -72,7 +72,7 @@ In this notebook I am consolidating the independent variables to NUTS level 2, v
 
 # Region weighting
 
-```{r join_everything, include=FALSE, eval=FALSE}
+```{r join_everything, include=FALSE}
 eu_vars <- typ_border_clean %>% 
     full_join(trust_clean, by = "id2.2013") %>% 
     full_join(qog_clean, by = "id2.2013") %>% 
@@ -92,6 +92,17 @@ eu_vars <- typ_border_clean %>%
 n_occur <- data.frame(table(eu_vars$id2.2013))
 n_occur[n_occur$Freq > 1,]
 ```
+
+```{r select_vars, include=FALSE}
+# Variable selection
+
+# remove regions with missing values for the dependent variable (eu_id)
+eu_vars_ri <- eu_vars %>% filter(!is.na(eu_vars$eu_id_type_code))
+eu_vars_ri_n <- eu_vars %>% 
+    filter(is.na(eu_vars$eu_id_type_code)) %>% 
+    select(id2.2013)
+```
+
 
 Variables that were weighted:
 

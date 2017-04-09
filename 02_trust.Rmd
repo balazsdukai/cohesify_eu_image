@@ -175,7 +175,8 @@ trust_clean <- trust_pct %>%
     rename(id2.2013 = id2, trust_natgov = trust_natgov_value,
            trust_eu = trust_eu_value) %>% 
     select(id2.2013, trust_natgov, trust_eu) %>% 
-    full_join(nt_incl, by = c("id2.2013" = "id2"))
+    full_join(nt_incl, by = c("id2.2013" = "id2")) %>% 
+    filter(id2.2013 != "0")
 ```
 
 A sample of the output:
