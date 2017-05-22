@@ -411,15 +411,15 @@ Table column names:
 + nr_n2_has: number of NUTS2 regions with values
 + p_n2_has: percentage of NUTS2 regions with values
 
-```{r, results='asis', echo=FALSE, out.width='90%'}
+```{r, echo=FALSE, out.width='90%'}
 # knitr::kable(coverage_2015, caption = "The coverage of the answers per NUTS regions, survey Nov. 2015")
-pander(coverage_2015, split.table = 80, style = 'rmarkdown', caption = "The coverage of the answers per NUTS regions, survey Nov. 2015")
+pander(data.frame(coverage_2015), split.table = 80, style = 'rmarkdown', caption = "The coverage of the answers per NUTS regions, survey Nov. 2015")
 ```
 
 
 ```{r, results='asis', echo=FALSE, out.width='90%'}
 # knitr::kable(coverage_2016, caption = "The coverage of the answers per NUTS regions for the questions \"Trust in national government and/or EU\", survey May 2016")
-pander(coverage_2016, split.table = 80, style = 'rmarkdown', caption = "The coverage of the answers per NUTS regions for the questions \"Trust in national government and/or EU\", survey May 2016")
+pander(data.frame(coverage_2016), split.table = 80, style = 'rmarkdown', caption = "The coverage of the answers per NUTS regions for the questions \"Trust in national government and/or EU\", survey May 2016")
 ```
 
 

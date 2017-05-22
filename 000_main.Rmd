@@ -118,25 +118,26 @@ eu_vars <- typ_border_clean %>%
 # Variable weigthing
 eu_vars <- eu_vars %>% 
     mutate_at(c("trust_natgov", "trust_eu", "eqi_2013", "soc_idx",
-                "migration_2013", "sgi_aggregated", "agr_share"),
+                "migration_2013", "sgi_aggregated", "agr_share",
+                "eu_id_positive", "eu_id_neutral", "eu_id_negative", "eu_id_dk"),
               funs(. * weight))
 
 # remove regions with missing values for the dependent variable (eu_id);
 # all regions included, even those that contain missing values;
 eu_vars_ri <- eu_vars %>%
-    filter(!is.na(eu_vars$eu_id_type_code)) %>% 
+    filter(eu_id.incl == 1) %>% 
     select(-ends_with(".incl"))
 # these regions are removed
 eu_vars_ri_n <- eu_vars %>% 
-    filter(is.na(eu_vars$eu_id_type_code)) %>% 
+    filter(eu_id.incl == 0) %>% 
     select(id2.2013)
-write_csv(eu_vars_ri, path = "~/Development/cohesify/results/eu_all.csv")
+write_csv(eu_vars_ri, path = "/home/bdukai/Development/cohesify/cohesify_variables/eu_all.csv")
 
 # remove regions that are missing value for any variable;
 eu_vars_no_na <- eu_vars_ri[complete.cases(eu_vars_ri), ]
 # these regions are removed;
 eu_vars_no_na_n <- eu_vars_ri[!complete.cases(eu_vars_ri), "id2.2013"]
-write_csv(eu_vars_no_na, path = "~/Development/cohesify/results/eu_no_missing.csv")
+write_csv(eu_vars_no_na, path = "/home/bdukai/Development/cohesify/cohesify_variables/eu_no_missing.csv")
 
 # remove all regions where the value for the NUTS2 region is a generalization of
 # NUTS0/1 values, because of missing data on the NUTS2 level;
@@ -156,8 +157,7 @@ eu_vars_include_n <- eu_vars %>%
     select(-ends_with(".incl"))
 # these regions are removed;
 eu_vars_exclude <- setdiff(nuts_2013_levels$id2, eu_vars_include_n$id2.2013)
-write_csv(eu_vars_include_n, path = "~/Development/cohesify/results/eu_include.csv")
-
+write_csv(eu_vars_include_n, path = "/home/bdukai/Development/cohesify/cohesify_variables/eu_include.csv")
 ```
 
 
@@ -169,6 +169,8 @@ Variables that were weighted with the population of 2014 per NUTS2 region:
 + Migration
 + Access to social services
 + Share of population in agriculture
+
+*Please note that due to the weigthing, the values of the weighted variables do not correspond any more to those that are shown in this report. However, the weights are easily removed by dividing the variable with the corresponding `weight`.*
 
 # Data quality
 

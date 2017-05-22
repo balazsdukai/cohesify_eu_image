@@ -10,44 +10,58 @@
 
 + EU identification
 
-    + 11 – Negative - Neutral
-    + 12 – Negative - Attached
-    + 21 – Neutral - Attached
-    + 22 – Neutral - Neutral
-    + 31 – Positive
+    + Positive [%] – percentage of respondents having a positive image about the EU
+    + Neutral [%] – percentage of respondents having a neutral image about the EU
+    + Negative [%] – percentage of respondents having a negative image about the EU
+    + DK [%] – percentage of respondents who has no opinion
 
 ## Data processing
 
 1. Translate NUTS 2 2010 to 2013 
 
+2. Missing values in the input data are represented as empty strings or with the value `-1`. These are recoded as `NA`.
+
 ```{r eu_id_load, include=FALSE}
-eu_id_clean <- read.xlsx(
-    "~/Data/COHESIFY/Datasets for regression/EU Identification/EU Identification typology (COHESIFY Output 2.4a).xlsx",
-    sheetIndex = 1, colIndex = c(1,3,4), startRow = 1, endRow = 273, 
+eu_id <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/EU Identification/EU Image Percentages.xlsx",
+    sheetIndex = 1, colIndex = c(1,2,3,4,5), startRow = 1, endRow = 286, 
     header = TRUE, stringsAsFactors = FALSE,
-    colClasses = c("character", "numeric", "character")) %>% 
-    rename(id2.2010 = NUTS_2_.2010., eu_id_type_code = Type_Code,
-           eu_id_type = EU_Id_Type) %>% 
+    colClasses = c("character", "numeric", "numeric","numeric","numeric")) %>% 
+    rename(id2.2010 = NUTS_Code, eu_id_positive = Positive,
+           eu_id_neutral = Neutral, eu_id_negative = Negative,
+           eu_id_dk = DK) %>% 
     inner_join(
         filter(
             select(tr_2010_2013, -id3.2010, -id3.2013),
             !(id2.2010 == "SI02" & id2.2013 == "SI03")
             ),
         by = "id2.2010") %>% 
-    select(id2.2013, eu_id_type_code) %>% 
-    distinct() %>% 
-    mutate(eu_id.incl = case_when(!is.na(.$eu_id_type_code) ~ 1,
+    select(id2.2013, eu_id_positive, eu_id_neutral, eu_id_negative,
+           eu_id_dk) %>% 
+    distinct()
+# replace -1 with NA
+eu_id[eu_id==-1] <- NA
+# mark regions with missing values
+eu_id_clean <- eu_id %>% 
+    mutate(eu_id.incl = case_when(complete.cases(.) ~ 1,
                                   TRUE ~ 0))
 
 missing <- eu_id_clean %>% 
-    filter(is.na(eu_id_type_code)) %>% 
+    filter(eu_id.incl == 0) %>% 
     select(id2.2013) %>% 
     distinct()
 ```
 
 ## Variabale encoding
 
-**eu_id_type_code:** EU identification as given above
+**eu_id_positive:** percentage of respondents having a positive image about the EU
+
+**eu_id_neutral:** percentage of respondents having a neutral image about the EU
+
+**eu_id_positive:** percentage of respondents having a negative image about the EU
+
+**eu_id_positive:** percentage of respondents who has no opinion
+
 
 ## Data quality
 
@@ -60,6 +74,6 @@ knitr::kable(missing, caption = "NUTS2 regions with missing values for the varia
 ```
 
 ```{r clean_up8, include=FALSE, message=FALSE, warning=FALSE}
-rm(missing)
+rm(missing, eu_id)
 ```
 
