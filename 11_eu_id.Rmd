@@ -45,7 +45,7 @@ eu_id[eu_id==-1] <- NA
 eu_id_clean <- eu_id %>% 
     mutate(eu_id.incl = case_when(complete.cases(.) ~ 1,
                                   TRUE ~ 0))
-
+# select regions with missing values
 missing <- eu_id_clean %>% 
     filter(eu_id.incl == 0) %>% 
     select(id2.2013) %>% 
@@ -58,9 +58,9 @@ missing <- eu_id_clean %>%
 
 **eu_id_neutral:** percentage of respondents having a neutral image about the EU
 
-**eu_id_positive:** percentage of respondents having a negative image about the EU
+**eu_id_negative:** percentage of respondents having a negative image about the EU
 
-**eu_id_positive:** percentage of respondents who has no opinion
+**eu_id_dk:** percentage of respondents who has no opinion
 
 
 ## Data quality

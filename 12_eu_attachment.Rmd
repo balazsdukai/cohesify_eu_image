@@ -1,0 +1,73 @@
+# EU Attachment
+
+**Data source:** Internal
+
+**Date of survey:** NA
+
+**Nomenclature:** NUTS 2010 level 2
+
+**Variables used:**
+
++ EU identification
+
+    + Attached_P [%] – percentage of respondents feeling attached to the EU
+    + Not_Very_P [%] – percentage of respondents feeling not very attached to the EU
+    + Not_At_All_P [%] – percentage of respondents feeling not attached at all to the EU
+    + DK_P [%] – percentage of respondents who has no opinion
+
+# Data processing
+
+1. Translate NUTS 2 2010 to 2013 
+
+2. Missing values in the input data are represented as `NULL`. There are also `0` values, but these are not treated as missing value.
+
+```{r eu_attach_load, include=FALSE}
+eu_att_clean <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/EU Attachment/FINAL_Merged_84.3_84.1_ATTACHMENT_EU_ALL_NUTS_LEVELS_Percentages.xlsx",
+    sheetIndex = 2, colIndex = c(1,2,3,4,5), startRow = 1, endRow = 273, 
+    header = TRUE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric", "numeric","numeric","numeric")) %>% 
+    rename(id2.2010 = NUTS_2, eu_att_positive = Attached_P,
+           eu_att_neutral = Not_Very_P, eu_att_negative = Not_At_All_P,
+           eu_att_dk = DK_P) %>% 
+    inner_join(
+        filter(
+            select(tr_2010_2013, -id3.2010, -id3.2013),
+            !(id2.2010 == "SI02" & id2.2013 == "SI03")
+            ),
+        by = "id2.2010") %>% 
+    select(id2.2013, eu_att_positive, eu_att_neutral, eu_att_negative,
+           eu_att_dk) %>% 
+    distinct() %>% 
+    mutate(eu_att.incl = case_when(complete.cases(.) ~ 1,
+                                  TRUE ~ 0))
+# select regions with missing values
+missing <- eu_att_clean %>% 
+    filter(eu_att.incl == 0) %>% 
+    select(id2.2013) %>% 
+    distinct()
+```
+
+## Variabale encoding
+
+**eu_att_positive:** percentage of respondents feeling attached to the EU
+
+**eu_att_neutral:** percentage of respondents feeling not very attached to the EU
+
+**eu_att_negative:** percentage of respondents feeling not attached at all to the EU
+
+**eu_att_dk:** percentage of respondents who has no opinion
+
+## Data quality
+
+The following aspects might influence the quality of the data:
+
++ NUTS2 regions with missing values
+
+```{r eu_att_missing, results='asis', echo=FALSE}
+knitr::kable(missing, caption = "NUTS2 regions with missing values for the variable EU attachment")
+```
+
+```{r clean_up9, include=FALSE, message=FALSE, warning=FALSE}
+rm(missing)
+```

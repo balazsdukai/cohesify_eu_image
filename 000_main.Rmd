@@ -96,6 +96,11 @@ options(knitr.table.format ='pandoc')
 
 \pagebreak
 
+```{r test-main, child = '12_eu_attachment.Rmd'}
+```
+
+\pagebreak
+
 # Region weighting
 
 ```{r join_everything, include=FALSE}
@@ -111,6 +116,7 @@ eu_vars <- typ_border_clean %>%
     full_join(acc2soc_clean, by = "id2.2013") %>%
     full_join(agr_clean, by = "id2.2013") %>%
     full_join(eu_id_clean, by = "id2.2013") %>%
+    full_join(eu_att_clean, by = "id2.2013") %>% 
     full_join(select(nuts_2013_weight, id2.2013, weight), by = "id2.2013")
 ```
 
@@ -119,17 +125,18 @@ eu_vars <- typ_border_clean %>%
 eu_vars <- eu_vars %>% 
     mutate_at(c("trust_natgov", "trust_eu", "eqi_2013", "soc_idx",
                 "migration_2013", "sgi_aggregated", "agr_share",
-                "eu_id_positive", "eu_id_neutral", "eu_id_negative", "eu_id_dk"),
+                "eu_id_positive", "eu_id_neutral", "eu_id_negative", "eu_id_dk",
+                "eu_att_positive", "eu_att_neutral", "eu_att_negative", "eu_att_dk"),
               funs(. * weight))
 
-# remove regions with missing values for the dependent variable (eu_id);
+# Remove regions with missing values for the dependent variable (eu_id and eu_att);
 # all regions included, even those that contain missing values;
 eu_vars_ri <- eu_vars %>%
-    filter(eu_id.incl == 1) %>% 
+    filter(eu_id.incl == 1 & eu_att.incl == 1) %>% 
     select(-ends_with(".incl"))
 # these regions are removed
 eu_vars_ri_n <- eu_vars %>% 
-    filter(eu_id.incl == 0) %>% 
+    filter(eu_id.incl == 0 | eu_att.incl == 0) %>% 
     select(id2.2013)
 write_csv(eu_vars_ri, path = "/home/bdukai/Development/cohesify/cohesify_variables/eu_all.csv")
 
@@ -153,7 +160,8 @@ eu_vars_include_n <- eu_vars %>%
            migration.incl == 1 &
            sgi_aggregated.incl == 1 &
            agr.incl == 1 &
-           eu_id.incl == 1) %>% 
+           eu_id.incl == 1 &
+           eu_att.incl == 1) %>% 
     select(-ends_with(".incl"))
 # these regions are removed;
 eu_vars_exclude <- setdiff(nuts_2013_levels$id2, eu_vars_include_n$id2.2013)
@@ -170,7 +178,12 @@ Variables that were weighted with the population of 2014 per NUTS2 region:
 + Access to social services
 + Share of population in agriculture
 
-*Please note that due to the weigthing, the values of the weighted variables do not correspond any more to those that are shown in this report. However, the weights are easily removed by dividing the variable with the corresponding `weight`.*
+Plus both dependent variables:
+
++ EU Identification
++ EU Attachment
+
+*Please note that the sample outputs of the weighted variables in this report show their values **before** the weights were applied to them. Due to weighting, the values of these variables in the output files (see Ch.17) do not correspond any more to those that are shown in this report. However, the weights are easily removed by dividing the variable with the corresponding `weight` value.*
 
 # Data quality
 
@@ -186,7 +199,7 @@ Due to the large number of NUTS2 regions with missing values at many variables, 
 
 **`eu_all.csv`**
 
-All regions included, even those that contain missing values for the independent variables. Regions are excluded that are missing values for the dependent variable `eu_id_typ_code`.
+All regions included, even those that contain missing values for the independent variables. Regions are excluded that are missing values for either of the dependent variables `EU identificaion` or `EU attachment`.
 
 Contains 261/276 NUTS2 regions. Excluded regions are:
 
