@@ -43,7 +43,11 @@ acc2soc_clean <- acc2soc_translate %>%
         by = "id2.2010") %>% 
     select(id2.2013, sgi_aggregated) %>% 
     distinct() %>% 
-    mutate(sgi_aggregated.incl = 1)
+    mutate(sgi_aggregated.incl = case_when(id2.2013 == "FI1D" | id2.2013 == "DE40" ~ 0,
+                                           TRUE ~ 1))
+# see comment at Data quality
+acc2soc_clean[acc2soc_clean$id2.2013 == "FI1D", "sgi_aggregated"] <- NA
+acc2soc_clean[acc2soc_clean$id2.2013 == "DE40", "sgi_aggregated"] <- NA
 ```
 
 ```{r check_acc2soc, include=FALSE}
@@ -72,9 +76,7 @@ The following aspects might influence the quality of the data:
 
 + The NUTS0 region *HR* is not present in the data.
 
-+ Merge of *FI1A* + *FI13* = *FI1D*. The value for *FI1D* is the average of *FI1A* and *FI13* values, weighted with the number of NUTS3 regions within each NUTS2 region.
-
-+ Merge of *DE41* + *DE42* = *DE40*. Boundary shift for *DED4* (2010) so it includes one NUTS3 region from *DED3* (2006). The value for both *DE40* and *DED4* is computed with the same process as in the previous step.
++ Merge of *FI1A* + *FI13* = *FI1D*. Merge of *DE41* + *DE42* = *DE40*. In both cases the NUTS 2013 regions (*FI1D*, *DE40*) are assigned a missing value, because population data is not available for NUTS 2006 regions, thus a weighted average value for the NUTS 2010/2013 region cannot be computed.
 
 ```{r clean_up7, include=FALSE, message=FALSE, warning=FALSE}
 rm(acc2soc_translate, acc2soc_raw)

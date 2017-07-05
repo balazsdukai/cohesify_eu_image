@@ -29,112 +29,119 @@ Charron, Nicholas, Victor Lapuente and Bo Rothstein. 2013. Quality of Government
 ```{r read_qog, include=FALSE, cache=TRUE}
 qog_raw <- read.xlsx(
     "~/Data/COHESIFY/Datasets for regression/QoG/publishing-the-eqi-data2013.xlsx",
-    sheetName = "EQI2013", colIndex = c(1,9), startRow = 4, endRow = 251, 
-    header = TRUE, stringsAsFactors = FALSE) %>% 
+    sheetName = "EQI2013",
+    colIndex = c(1, 9),
+    startRow = 4,
+    endRow = 251,
+    header = TRUE,
+    stringsAsFactors = FALSE
+    ) %>%
     rename(nuts_2006 = NUTS, eqi_2013 = EQI.2013)
 ```
 
 ```{r qog_nuts2, include=FALSE}
 # get nuts0 regions of input with values
-qog_raw_nuts0 <- qog_raw %>% 
-    select(nuts_2006, eqi_2013) %>% 
+qog_raw_nuts0 <- qog_raw %>%
+    select(nuts_2006, eqi_2013) %>%
     filter(nchar(nuts_2006) == 2)
 
 # get eqi_2013 values with nuts0 2013 regions
-qog_raw_nuts0_2013 <-  qog_raw_nuts0 %>% 
+qog_raw_nuts0_2013 <- qog_raw_nuts0 %>%
     inner_join(select(tr_2006_2010, id0.2006, id0.2010),
-               by = c("nuts_2006" = "id0.2006")) %>% 
-    inner_join(select(tr_2010_2013, id0.2010, id0.2013), by = "id0.2010") %>% 
-    inner_join(eu_members, by = c("id0.2013" = "id0")) %>% 
-    select(id0.2013, eqi_2013) %>% 
+               by = c("nuts_2006" = "id0.2006")) %>%
+    inner_join(select(tr_2010_2013, id0.2010, id0.2013), by = "id0.2010") %>%
+    inner_join(eu_members, by = c("id0.2013" = "id0")) %>%
+    select(id0.2013, eqi_2013) %>%
     distinct()
 
 # get nuts1 regions of input with values
-qog_raw_nuts1 <- qog_raw %>% 
-    select(nuts_2006, eqi_2013) %>% 
-    filter(nchar(nuts_2006) == 3) %>% 
+qog_raw_nuts1 <- qog_raw %>%
+    select(nuts_2006, eqi_2013) %>%
+    filter(nchar(nuts_2006) == 3) %>%
     mutate(id0.2006 = substr(nuts_2006, 0, 2))
 
 # get eqi_2013 values with nuts1 2013 regions
-# take the average value for EL5 and EL6
-qog_raw_nuts1_2013 <-  qog_raw_nuts1 %>% 
+qog_raw_nuts1_2013 <-  qog_raw_nuts1 %>%
     inner_join(select(tr_2006_2010, id1.2006, id1.2010, id2.2010),
-               by = c("nuts_2006" = "id1.2006")) %>% 
+               by = c("nuts_2006" = "id1.2006")) %>%
     distinct() %>%
-    inner_join(select(tr_2010_2013, id1.2010, id2.2010, id1.2013, id2.2013, id0.2013), by = "id2.2010") %>% 
-    inner_join(eu_members, by = c("id0.2013" = "id0")) %>% 
-    select(id1.2013, id2.2013, eqi_2013) %>% 
-    distinct() %>% 
-    group_by(id1.2013) %>% 
-    summarise(eqi_2013 = mean(eqi_2013)) %>% 
-    ungroup()
+    inner_join(select(tr_2010_2013, id1.2010, id2.2010, id1.2013, id2.2013, id0.2013),
+               by = "id2.2010") %>%
+    inner_join(eu_members, by = c("id0.2013" = "id0")) %>%
+    select(id1.2013, eqi_2013) %>%
+    distinct()
+# qog_raw_nuts1_2013[qog_raw_nuts1_2013$id1.2013 == "EL5", "eqi_2013"] <- NA
+# qog_raw_nuts1_2013[qog_raw_nuts1_2013$id1.2013 == "EL6", "eqi_2013"] <- NA
 
 # Get NUTS2 regions of input
-qog_raw_nuts2 <- qog_raw %>% 
-    select(nuts_2006) %>% 
-    filter(nchar(nuts_2006) == 4) %>% 
-    mutate(id1.2006 = substr(nuts_2006, 0, 3), id0.2006 = substr(nuts_2006, 0, 2))
+qog_raw_nuts2 <- qog_raw %>%
+    select(nuts_2006) %>%
+    filter(nchar(nuts_2006) == 4) %>%
+    mutate(id1.2006 = substr(nuts_2006, 0, 3),
+           id0.2006 = substr(nuts_2006, 0, 2))
 
 # check where are the gaps in the regions, where are nuts2 values missing
-qog_prep <- select(qog_raw_nuts0, -eqi_2013) %>% 
-    full_join(select(qog_raw_nuts1, -eqi_2013), by = c("nuts_2006" = "id0.2006")) %>% 
-    rename(id0.2006 = nuts_2006, id1.2006 = nuts_2006.y) %>% 
-    full_join(qog_raw_nuts2, by = "id0.2006") %>% 
-    select(-id1.2006.y) %>% 
+qog_prep <- select(qog_raw_nuts0, -eqi_2013) %>%
+    full_join(select(qog_raw_nuts1, -eqi_2013),
+    by = c("nuts_2006" = "id0.2006")) %>%
+    rename(id0.2006 = nuts_2006, id1.2006 = nuts_2006.y) %>%
+    full_join(qog_raw_nuts2, by = "id0.2006") %>%
+    select(-id1.2006.y) %>%
     rename(id1.2006 = id1.2006.x, id2.2006 = nuts_2006)
 
 # these regions have no nuts2 values
 no_lvl2 <- qog_prep %>%
-    filter(is.na(id2.2006)) %>% 
-    distinct() %>% 
+    filter(is.na(id2.2006)) %>%
+    distinct() %>%
     select(-id2.2006)
 
 # translate nuts0 2006 regions that consist of a single nuts2 region to nuts2 2013 regions
-n0 <- no_lvl2 %>% 
-    select(id0.2006) %>% 
-    inner_join(qog_raw, by = c("id0.2006" = "nuts_2006")) %>% 
-    inner_join(select(tr_2006_2010, id0.2006, id0.2010), by = "id0.2006") %>% 
-    distinct() %>% 
-    inner_join(nuts_2013_single_n0, by = c("id0.2010" = "id0")) %>% 
-    inner_join(tr_2010_2013, by = "id0.2010") %>% 
-    rename(qog.incl = incl) %>% 
-    select(id2.2013, eqi_2013, qog.incl) %>% 
+n0 <- no_lvl2 %>%
+    select(id0.2006) %>%
+    inner_join(qog_raw, by = c("id0.2006" = "nuts_2006")) %>%
+    inner_join(select(tr_2006_2010, id0.2006, id0.2010), by = "id0.2006") %>%
+    distinct() %>%
+    inner_join(nuts_2013_single_n0, by = c("id0.2010" = "id0")) %>%
+    inner_join(tr_2010_2013, by = "id0.2010") %>%
+    rename(eqi.incl = incl) %>%
+    select(id2.2013, eqi_2013, eqi.incl) %>%
     distinct()
 
 # translate nuts1 2006 regions that consist of a single nuts2 region to nuts2 2013 regions
-n1 <- no_lvl2 %>% 
-    select(id1.2006) %>% 
-    inner_join(qog_raw, by = c("id1.2006" = "nuts_2006")) %>% 
-    inner_join(select(tr_2006_2010, id1.2006, id1.2010), by = "id1.2006") %>% 
-    distinct() %>% 
-    inner_join(nuts_2013_single_n1, by = c("id1.2010" = "id1")) %>% 
-    inner_join(tr_2010_2013, by = "id1.2010") %>% 
-    rename(qog.incl = incl) %>% 
-    select(id2.2013, eqi_2013, qog.incl) %>% 
+n1 <- no_lvl2 %>%
+    select(id1.2006) %>%
+    inner_join(qog_raw, by = c("id1.2006" = "nuts_2006")) %>%
+    inner_join(select(tr_2006_2010, id1.2006, id1.2010), by = "id1.2006") %>%
+    distinct() %>%
+    inner_join(nuts_2013_single_n1, by = c("id1.2010" = "id1")) %>%
+    inner_join(tr_2010_2013, by = "id1.2010") %>%
+    rename(eqi.incl = incl) %>%
+    select(id2.2013, eqi_2013, eqi.incl) %>%
     distinct()
 ```
 
 ```{r qog_translate, include=FALSE}
 # only the NUTS2 regions that have value
-qog_translate <- qog_raw %>% 
-    filter(nchar(nuts_2006) >= 4) %>% 
+qog_translate <- qog_raw %>%
+    filter(nchar(nuts_2006) >= 4) %>%
     inner_join(tr_2006_2010, by = c("nuts_2006" = "id2.2006")) %>%
-    rename(id2.2006 = nuts_2006) %>% 
-    select(id2.2010, id2.2006, eqi_2013) %>% 
+    rename(id2.2006 = nuts_2006) %>%
+    select(id2.2010, id2.2006, eqi_2013) %>%
     distinct()
 ```
 
 ```{r check_qog, include=FALSE}
 # regions that have no match between 2006 and 2010
 no_match <- full_join(qog_translate, qog_raw_nuts2,
-                      by = c("id2.2006" = "nuts_2006")) %>% 
-    filter(is.na(eqi_2013)) %>% 
-    arrange(id2.2006)
+                      by = c("id2.2006" = "nuts_2006")) %>%
+                      filter(is.na(eqi_2013)) %>%
+                      arrange(id2.2006)
 ```
 
 ```{r correct_qog, include=FALSE}
 # fill in the missing value for the only region
-qog_translate[qog_translate$id2.2010 == "HR04", "eqi_2013"] <- qog_raw[qog_raw$nuts_2006 == "HR04", "eqi_2013"]
+qog_translate[qog_translate$id2.2010 == "HR04", "eqi_2013"] <-
+    qog_raw[qog_raw$nuts_2006 == "HR04", "eqi_2013"]
 ```
 
 ```{r qog_translate_2013, include=FALSE}
@@ -145,31 +152,39 @@ qog_translate[qog_translate$id2.2010 == "HR04", "eqi_2013"] <- qog_raw[qog_raw$n
 # input missing values into nuts2 regions from higher level nuts regions
 # depending on their availability, try nuts1 first;
 qog_clean <- qog_translate %>%
-    inner_join(tr_2010_2013, by = "id2.2010") %>% 
-    select(id2.2013, eqi_2013) %>% 
-    distinct() %>% 
-    mutate(qog.incl = case_when(!is.na(.$eqi_2013) ~ 1,
+    inner_join(tr_2010_2013, by = "id2.2010") %>%
+    select(id2.2013, eqi_2013) %>%
+    distinct() %>%
+    mutate(eqi.incl = case_when(!is.na(.$eqi_2013) ~ 1,
                                 is.na(.$eqi_2013) ~ 0)) %>% 
-    bind_rows(n0) %>% 
-    bind_rows(n1) %>% 
-    full_join(select(nuts_2013_levels, -id3), by = c("id2.2013" = "id2")) %>% 
-    distinct() %>% 
-    full_join(qog_raw_nuts1_2013, by = c("id1" = "id1.2013"),
-              suffix = c(".n2", ".n1")) %>% 
-    full_join(qog_raw_nuts0_2013, by = c("id0" = "id0.2013")) %>% 
-    rename(eqi_2013.n0 = eqi_2013) %>% 
-    mutate(eqi_2013.n2 = case_when((is.na(.$eqi_2013.n2) & is.na(.$eqi_2013.n1)) ~ .$eqi_2013.n0,
-                                  (is.na(.$eqi_2013.n2) & !is.na(.$eqi_2013.n1)) ~ .$eqi_2013.n1,
-                                  TRUE ~ .$eqi_2013.n2)) %>% 
-    rename(eqi_2013 = eqi_2013.n2) %>% 
-    select(id2.2013, eqi_2013, qog.incl) %>% 
+    bind_rows(n0) %>%
+    bind_rows(n1) %>%
+    full_join(select(nuts_2013_levels, -id3), by = c("id2.2013" = "id2")) %>%
+    distinct() %>%
+    full_join(
+        qog_raw_nuts1_2013,
+        by = c("id1" = "id1.2013"),
+        suffix = c(".n2", ".n1")
+        ) %>% 
+    full_join(qog_raw_nuts0_2013, by = c("id0" = "id0.2013")) %>%
+    rename(eqi_2013.n0 = eqi_2013) %>%
+    mutate(eqi_2013.n2 = case_when((is.na(.$eqi_2013.n2) &
+                                        is.na(.$eqi_2013.n1)) ~ .$eqi_2013.n0,
+                                        (is.na(.$eqi_2013.n2) &
+                                        !is.na(.$eqi_2013.n1)) ~ .$eqi_2013.n1,
+                                        TRUE ~ .$eqi_2013.n2
+                                        )) %>% 
+    rename(eqi_2013 = eqi_2013.n2) %>%
+    select(id2.2013, eqi_2013, eqi.incl) %>%
     arrange(id2.2013)
-qog_clean[is.na(qog_clean)] <- 0
 
-# merge of FI1A + FI13 = FI1D, take their arithmetic avg. as value for FI1D
-fi1_avg <- mean(qog_clean[qog_clean$id2.2013 == "FI1D", "eqi_2013"])
-qog_clean[qog_clean$id2.2013 == "FI1D", "eqi_2013"] <- fi1_avg
-qog_clean <-  distinct(qog_clean)
+# NA for FI1D, EL5, EL6 (see comment at Data quality)
+qog_clean[qog_clean$id2.2013 == "FI1D", "eqi_2013"] <- NA
+qog_clean[substr(qog_clean$id2.2013, 1, 3) == "EL5", "eqi_2013"] <- NA
+qog_clean[substr(qog_clean$id2.2013, 1, 3) == "EL6", "eqi_2013"] <- NA
+
+qog_clean <- distinct(qog_clean)
+qog_clean[is.na(qog_clean$eqi_2013) | is.na(qog_clean$eqi.incl), "eqi.incl"] <- 0
 ```
 
 A sample of the output:
@@ -191,15 +206,30 @@ The following aspects might influence the quality of the data:
 The list of NUTS2 regions with originally missing values:
 
 ```{r, echo=FALSE}
-unique(qog_clean[qog_clean$qog.incl == 0, "id2.2013"])
+unique(qog_clean[qog_clean$eqi.incl == 0, "id2.2013"])
 ```
 
-+ Merge of *FI1A* + *FI13* = *FI1D*. The value for *FI1D* is the arithmetic average of *FI1A* (1.595620) and *FI13* (1.484862).
 
-+ The 2013 regions *EL5* and *EL6* are composed of NUTS 2010 level 2 regions that belong to multiple NUTS1 region. Therefore `eqi_2013` value for *EL5* is computed as the arithmetic average of *EL11, EL12, EL13, EL21* (2010), the value for *EL6* is the arithmetic average of *EL14, EL22, EL23, EL24, EL25*.
++ Merge of *FI1A* + *FI13* = *FI1D*. In this case the NUTS 2013 regions (*FI1D*) are assigned a missing value, because population data is not available for NUTS 2006 regions, thus a weighted average value for the NUTS 2010/2013 region cannot be computed.
+
++ There are no NUTS level 2 values for Greece, only NUTS level 1 values. Furthermore, the NUTS 2013 level 1 regions *EL5* and *EL6* are composed of NUTS 2010 level 2 regions that belong to multiple NUTS 2010 level 1 regions. Therefore all NUTS 2013 level 2 regions that belong to either *EL5* or *EL6* are assigned a missing value, because due to missing population data it is not possible to compute a weighted average for *EL5* and *EL6* and imput these value for the corresponding NUTS 2013 level 2 regions.
 
 ```{r clean_up4, include=FALSE, message=FALSE, warning=FALSE}
-rm(qog_translate, no_match, qog_raw, qog_raw_nuts2, qog_prep, qog_raw_nuts0, qog_raw_nuts0_2013, qog_raw_nuts1, qog_raw_nuts1_2013, n0, n1, no_lvl2, fi1_avg)
+rm(
+    qog_translate,
+    no_match,
+    qog_raw,
+    qog_raw_nuts2,
+    qog_prep,
+    qog_raw_nuts0,
+    qog_raw_nuts0_2013,
+    qog_raw_nuts1,
+    qog_raw_nuts1_2013,
+    n0,
+    n1,
+    no_lvl2,
+    fi1_avg
+    )
 gc()
 ```
 

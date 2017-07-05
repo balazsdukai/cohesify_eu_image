@@ -6,7 +6,7 @@
 
 **Date of access:** 2016-12-04
 
-**Nomenclature:** NUTS 2010/2013 level 3
+**Nomenclature:** NUTS 2010/2013 level 2
 
 **Variables used:**
 
@@ -30,29 +30,47 @@ migr_raw <- read.xlsx(
 ```
 
 ```{r migr_prep, include=FALSE}
-migr_prep <- migr_raw %>% 
-    filter(nchar(nuts_2010) == 4) %>% 
-    mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
-    inner_join(eu_members, by = "id0") %>% 
+# # Get NUTS3 regions
+# migr_prep <- migr_raw %>% 
+#     filter(nchar(nuts_2010) == 5) %>% 
+#     mutate(id0 = substr(nuts_2010, 0, 2)) %>% 
+#     inner_join(eu_members, by = "id0") %>% 
+#     select(-id0)
+
+# Get NUTS2 regions
+migr_prep <- migr_raw %>%
+    filter(nchar(nuts_2010) == 4) %>%
+    mutate(id0 = substr(nuts_2010, 0, 2)) %>%
+    inner_join(eu_members, by = "id0") %>%
     select(-id0)
 
-# The 2013 regions that in the data but are not NUTS 2010 regions
+# # The NUTS 2013 lvl 3 regions with values that in the data 
+# n2013 <- migr_prep %>% 
+#     full_join(nuts_2010_levels, by = c("nuts_2010" = "id3")) %>% 
+#     # select(-id3) %>% 
+#     rename(nuts_2013 = nuts_2010) %>% 
+#     distinct() %>% 
+#     filter(is.na(id0) & !is.na(migration_2013))
+
+# The NUTS 2013 lvl 2 regions with values that in the data
 n2013 <- migr_prep %>% 
     full_join(nuts_2010_levels, by = c("nuts_2010" = "id2")) %>% 
-    select(-id3) %>% 
+    select(-id3) %>%
+    rename(nuts_2013 = nuts_2010) %>% 
     distinct() %>% 
     filter(is.na(id0))
 
-# The 2010 regions that are in the data but are not NUTS 2013 regions
-n2010 <- migr_prep %>% 
-    full_join(nuts_2013_levels, by = c("nuts_2010" = "id2")) %>% 
-    select(-id3) %>% 
-    distinct() %>% 
-    filter(is.na(id0))
+
+# # The NUTS 2010 regions that are in the data but are not NUTS 2013 regions
+# n2010 <- migr_prep %>% 
+#     full_join(nuts_2013_levels, by = c("nuts_2010" = "id3")) %>% 
+#     # select(-id3) %>% 
+#     distinct() %>% 
+#     filter(is.na(id0))
 
 # Put it together and filter out 2013 regions
 migr_2010 <- migr_prep %>%
-    filter(!(nuts_2010 %in% n2013$nuts_2010)) %>% 
+    filter(!(nuts_2010 %in% n2013$nuts_2013)) %>% 
     arrange(nuts_2010) %>% 
     rename(id2 = nuts_2010)
 

@@ -8,7 +8,7 @@
 
 **Date of survey:** Nov. 2015, May 2016
 
-**Nomenclature:** NUTS 2010 level 3
+**Nomenclature:** NUTS 2010 level 2
 
 **Variables used:** 
 

@@ -15,9 +15,9 @@ subtitle: COHESIFY - The Impact of Cohesion Policy on EU Identification and is p
 papersize: a4paper
 ---
 
-```{r install_sf_gg, eval=FALSE, include=FALSE}
+```{r install_sf_gg, eval=TRUE, include=FALSE}
 # install ggplot2 branch that can plot simple features
-devtools::install_github("tidyverse/ggplot2",ref="sf")
+devtools::install_github("tidyverse/ggplot2", ref="sf")
 ```
 
 
@@ -28,6 +28,7 @@ library(pander)
 library(RPostgreSQL)
 library(tidyverse)
 library(sf)
+library(ggplot2)
 db <- dbConnect(RPostgreSQL::PostgreSQL(), dbname = "nuts", user="bdukai", host="localhost")
 knitr::opts_chunk$set(connection = "db")
 options(knitr.table.format ='pandoc')
@@ -101,7 +102,7 @@ options(knitr.table.format ='pandoc')
 
 \pagebreak
 
-# Region weighting
+
 
 ```{r join_everything, include=FALSE}
 eu_vars <- typ_border_clean %>% 
@@ -116,24 +117,24 @@ eu_vars <- typ_border_clean %>%
     full_join(acc2soc_clean, by = "id2.2013") %>%
     full_join(agr_clean, by = "id2.2013") %>%
     full_join(eu_id_clean, by = "id2.2013") %>%
-    full_join(eu_att_clean, by = "id2.2013") %>% 
-    full_join(select(nuts_2013_weight, id2.2013, weight), by = "id2.2013")
+    full_join(eu_att_clean, by = "id2.2013")
+# %>% 
+#     full_join(select(nuts_2013_weight, id2.2013, weight), by = "id2.2013")
 ```
 
 ```{r select_vars, include=FALSE}
-# Variable weigthing
-eu_vars <- eu_vars %>% 
-    mutate_at(c("trust_natgov", "trust_eu", "eqi_2013", "soc_idx",
-                "migration_2013", "sgi_aggregated", "agr_share",
-                "eu_id_positive", "eu_id_neutral", "eu_id_negative", "eu_id_dk",
-                "eu_att_positive", "eu_att_neutral", "eu_att_negative", "eu_att_dk"),
-              funs(. * weight))
+# # Variable weigthing
+# eu_vars <- eu_vars %>% 
+#     mutate_at(c("eqi_2013", "sgi_aggregated"),
+#               funs(. * weight))
 
 # Remove regions with missing values for the dependent variable (eu_id and eu_att);
 # all regions included, even those that contain missing values;
 eu_vars_ri <- eu_vars %>%
-    filter(eu_id.incl == 1 & eu_att.incl == 1) %>% 
-    select(-ends_with(".incl"))
+    filter(eu_id.incl == 1 & eu_att.incl == 1)
+# %>% 
+#     select(-ends_with(".incl"))
+
 # these regions are removed
 eu_vars_ri_n <- eu_vars %>% 
     filter(eu_id.incl == 0 | eu_att.incl == 0) %>% 
@@ -151,7 +152,7 @@ write_csv(eu_vars_no_na, path = "/home/bdukai/Development/cohesify/cohesify_vari
 eu_vars_include_n <- eu_vars %>% 
     filter(typ_border.incl == 1 &
            trust.incl == 1 &
-           qog.incl == 1 &
+           eqi.incl == 1 &
            struct_2007.incl == 1 &
            struct_2014.incl == 1 &
            unemp.incl == 1 &
@@ -167,23 +168,6 @@ eu_vars_include_n <- eu_vars %>%
 eu_vars_exclude <- setdiff(nuts_2013_levels$id2, eu_vars_include_n$id2.2013)
 write_csv(eu_vars_include_n, path = "/home/bdukai/Development/cohesify/cohesify_variables/eu_include.csv")
 ```
-
-
-Variables that were weighted with the population of 2014 per NUTS2 region:
-
-+ Trust in national government / EU
-+ Quality of Government
-+ Social progress
-+ Migration
-+ Access to social services
-+ Share of population in agriculture
-
-Plus both dependent variables:
-
-+ EU Identification
-+ EU Attachment
-
-*Please note that the sample outputs of the weighted variables in this report show their values **before** the weights were applied to them. Due to weighting, the values of these variables in the output files (see Ch.17) do not correspond any more to those that are shown in this report. However, the weights are easily removed by dividing the variable with the corresponding `weight` value.*
 
 # Data quality
 
