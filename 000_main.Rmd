@@ -15,12 +15,6 @@ subtitle: COHESIFY - The Impact of Cohesion Policy on EU Identification and is p
 papersize: a4paper
 ---
 
-```{r install_sf_gg, eval=TRUE, include=FALSE}
-# install ggplot2 branch that can plot simple features
-devtools::install_github("tidyverse/ggplot2", ref="sf")
-```
-
-
 ```{r setup, include=FALSE, message=FALSE}
 library(haven)
 library(xlsx)
