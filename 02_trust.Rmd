@@ -8,7 +8,7 @@
 
 **Date of survey:** Nov. 2015, May 2016
 
-**Nomenclature:** NUTS 2010 level 2
+**Nomenclature:** NUTS 2010 level 0-3
 
 **Variables used:** 
 
@@ -43,6 +43,17 @@ trust_raw_2016 <- read_sav("~/Data/COHESIFY/Datasets for regression/Trust in nat
 trust_raw_2015 <- read_sav("/home/bdukai/Data/COHESIFY/Datasets for regression/Trust in national government/ZA6643_v3-0-0 (2).sav")
 ```
 
+```{r}
+df <- trust_raw_2015
+t_natgov <- "qa8a_8"
+t_eu <- "qa8a_10"
+
+
+
+```
+
+
+
 ```{r trust_prep, include=FALSE}
 # get values for trust in national government
 get_trust <- function(df, eu_members, t_natgov, t_eu){
@@ -52,59 +63,70 @@ get_trust <- function(df, eu_members, t_natgov, t_eu){
     val_lvl0 <- df %>%
         select_(t_natgov, t_eu, "nuts", "nutslvl") %>%
         filter(nutslvl == 0) %>%
-        select(-nutslvl) %>% 
-        inner_join(nuts_2013_single_n0, by = c("nuts" = "id0")) %>% 
-        inner_join(eu_members, by = c("nuts" = "id0")) %>% 
-        inner_join(nuts_2013_levels, by = c("nuts" = "id0")) %>% 
-        rename_(trust_natgov = t_natgov, trust_eu = t_eu, trust.incl = "incl") %>% 
-        select(id2, trust_natgov, trust_eu, trust.incl)
+        inner_join(distinct(select(nuts_2013_levels, c(id0, id1, id2))),
+                   by = c("nuts" = "id0")) %>% 
+        rename("id0.2013" = nuts, "id1.2013" = id1) %>% 
+        select(-c(nutslvl))
+    
     
     # Mapping NUTS1 -> NUTS2
     # these are regions where only NUTS1 values exist
     # they are marked to 'exclude' from the strict analysis at the end
-    val_lvl1 <- df %>%
+    x <- df %>%
         select_(t_natgov, t_eu, "nuts", "nutslvl") %>%
         filter(nutslvl == 1) %>%
         select(-nutslvl) %>%
-        inner_join(tr_2010_2013, by = c("nuts" = "id1.2010")) %>% 
-        inner_join(eu_members, by = c("id0.2013" = "id0")) %>%
-        full_join(select(nuts_2013_single_n1, -id0), by = c("id1.2013" = "id1")) %>%
-        rename_(trust_natgov = t_natgov, trust_eu = t_eu, id2 = "id2.2013", trust.incl = "incl") %>% 
-        select(id2, trust_natgov, trust_eu, trust.incl)
-    val_lvl1[is.na(val_lvl1)] <- 0
+        inner_join(distinct(select(tr_2010_2013, c(id0.2013, id1.2013, id1.2010))),
+                   by = c("nuts" = "id1.2010"))
     
-    # Put it together
-    trust_to_lvl2 <- df %>%
+    # NUTS1 regions that only consist of a single NUTS2 region
+    val_lvl1_single2 <- x %>% 
+        inner_join(select(nuts_2013_single_n1, id1),
+                   by = c("id1.2013" = "id1")) %>% 
+        inner_join(distinct(select(nuts_2013_levels, c(id1, id2))),
+                   by = c("id1.2013" = "id1")) %>% 
+        select(-nuts)
+    
+    # NUTS1 regions with many NUTS2 regions but are missing values for those
+    val_lvl1_no2 <- x %>% 
+        anti_join(select(nuts_2013_single_n1, id1),
+                   by = c("id1.2013" = "id1")) %>% 
+        select(-nuts) %>% 
+        cbind(id2=NA)
+
+    # NUTS2
+    val_lvl2 <- df %>%
         select_(t_natgov, t_eu, "nuts", "nutslvl") %>%
         filter(nutslvl == 2) %>%
-        inner_join(tr_2010_2013, by = c("nuts" = "id2.2010")) %>% 
-        inner_join(eu_members, by = c("id0.2013" = "id0")) %>%
-        rename_(trust_natgov = t_natgov, trust_eu = t_eu, id2 = "id2.2013") %>% 
-        select(id2, trust_natgov, trust_eu, -nutslvl) %>% 
-        mutate(trust.incl = 1) %>% 
-        bind_rows(val_lvl0) %>% 
-        bind_rows(val_lvl1)
+        inner_join(distinct(select(tr_2010_2013, c(id0.2013, id1.2013, 
+                                                   id2.2013, id2.2010))),
+                   by = c("nuts" = "id2.2010")) %>% 
+        rename(id2 = "id2.2013") %>% 
+        select(-c(nuts, nutslvl))
     
-    nt <- trust_to_lvl2 %>% 
-        group_by(id2) %>% 
-        count(trust_natgov, trust.incl)
+    # NUTS3
+    val_lvl3 <- df %>%
+    select_(t_natgov, t_eu, "nuts", "nutslvl") %>%
+    filter(nutslvl == 3) %>%
+    inner_join(tr_2010_2013,
+               by = c("nuts" = "id3.2010")) %>% 
+    rename(id2 = "id2.2013") %>% 
+    select(-c(nuts, nutslvl, id3.2013, id0.2010, id1.2010, id2.2010))
     
-    eu <- trust_to_lvl2 %>% 
-        group_by(id2) %>% 
-        count(trust_eu, trust.incl)
-    
-    res <- list(nt, eu)
-    
-    return(res)
+    # Put it together
+    out <- val_lvl0 %>% 
+        bind_rows(val_lvl1_no2) %>% 
+        bind_rows(val_lvl1_single2) %>% 
+        bind_rows(val_lvl2) %>% 
+        bind_rows(val_lvl3) %>% 
+        rename("id2.2013" = id2)
 }
 
-# Get survey answers for both years, aggregated by NUTS2 regions
-# trust in nationan government
-nt_2015 <- get_trust(trust_raw_2015, eu_members, "qa8a_8", "qa8a_10")[[1]]
-nt_2016 <- get_trust(trust_raw_2016, eu_members, "qa8a_7", "qa8a_9")[[1]]
-# trust in eu
-eu_2015 <- get_trust(trust_raw_2015, eu_members, "qa8a_8", "qa8a_10")[[2]]
-eu_2016 <- get_trust(trust_raw_2016, eu_members, "qa8a_7", "qa8a_9")[[2]]
+nt_eu_2015 <- get_trust(trust_raw_2015, eu_members, "qa8a_8", "qa8a_10")
+nt_eu_2016 <- get_trust(trust_raw_2016, eu_members, "qa8a_7", "qa8a_9")
+```
+
+```{r trust_prep2, include=FALSE}
 
 # Combine 2015 and 2016
 nt <- nt_2015 %>% 
@@ -181,7 +203,7 @@ trust_clean <- trust_pct %>%
 
 A sample of the output:
 
-```{r trust_plot_de, echo=FALSE}
+```{r trust_plot_de, echo=FALSE, eval=FALSE}
 trust_pct %>% 
     filter(id0 == "DE") %>% 
     mutate(e_w = case_when(.$id1 == "DE3" ~ "DE-E",
@@ -214,7 +236,7 @@ trust_pct %>%
              © EuroGeographics for the administrative boundaries")
 ```
 
-```{r trust_plot, echo=FALSE}
+```{r trust_plot, echo=FALSE, eval=FALSE}
 trust_pct %>% 
     ggplot(aes(trust_natgov_value, trust_eu_value, color = id0)) +
         geom_point() +
@@ -242,6 +264,12 @@ knitr::kable(head(trust_clean), caption = "Trust in national government and the 
 ## Data quality
 
 The following aspects might influence the quality of the data:
+
++ Responses from non-EU contries such as Montenegro (ME), Turkey (TR), Albania (AL), Serbia (RS), Macedonia (MK) are removed.
+
++ Responses from CYTCC (Turkish Cypriot Community) are missing values for the Trust in National Government / EU variables and therefore removed (500 responses).
+
+
 
 + Missing values in regions. What could be problematic in this case is that three of the large countries with many NUTS2 regions, **IT, DE, UK** have only data on the NUTS1 level. Therefore the groups of the NUTS2 regions that take the same value from the corresponding NUTS1 region could skew the regression outcome. Furthermore, some countries have no values at all. These countries are: **EE, HR, IE, LT, LV, SI**. Notice that the countries that have records only on NUTS0 level, are composed of only one NUTS2 region. 
 
@@ -423,7 +451,7 @@ pander(data.frame(coverage_2016), split.table = 80, style = 'rmarkdown', caption
 ```
 
 
-```{r, echo=FALSE, out.width='\\textwidth', fig.height=10}
+```{r, echo=FALSE, out.width='\\textwidth', fig.height=10, eval=FALSE}
 nt_resp_rg <- nuts_2013_rg %>% 
     inner_join(nt_response, by = c("nuts_id" = "id2")) 
 
