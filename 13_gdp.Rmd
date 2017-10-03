@@ -37,5 +37,14 @@ gdp_nuts2 <- gdp_raw %>%
     mutate(id0 = substr(nuts, 0, 2)) %>%
     inner_join(eu_members, by = "id0") %>%
     select(-id0) %>% 
-    rename("nuts_2013" = nuts)
+    rename("id2.2013" = nuts)
 ```
+
+There are some extra NUTS regions which will be ignored
+
+```{r}
+select(gdp_nuts2, nuts_2013) %>%
+    anti_join(distinct(select(nuts_2013_levels, id2)),
+              by = c("nuts_2013" = "id2"))
+```
+

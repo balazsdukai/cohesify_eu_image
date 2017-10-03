@@ -97,8 +97,22 @@ options(knitr.table.format ='pandoc')
 \pagebreak
 
 ```{r join_everything2, include=FALSE}
-eu_vars_2015 <- nt_eu_2015 %>% 
-    left_join(select(qog_clean, -eqi.incl), by = "id2.2013")
+eurobarometer_2015 <- nt_eu_2015 %>% 
+    left_join(gdp_nuts2, by = "id2.2013") %>% 
+    left_join(acc2soc_clean, by = "id2.2013") %>% 
+    left_join(struct_2014_clean, by = "id2.2013")
+
+eurobarometer_2016 <- nt_eu_2016 %>% 
+    left_join(gdp_nuts2, by = "id2.2013") %>% 
+    left_join(acc2soc_clean, by = "id2.2013") %>% 
+    left_join(struct_2014_clean, by = "id2.2013")
+```
+
+```{r}
+write_csv(eurobarometer_2015,
+          path = "~/Development/cohesify/cohesify_variables/eu_2015_ZA6643.csv")
+write_csv(eurobarometer_2016,
+          path = "~/Development/cohesify/cohesify_variables/eu_2016_ZA6694.csv")
 ```
 
 ```{r join_everything, include=FALSE, eval=FALSE}

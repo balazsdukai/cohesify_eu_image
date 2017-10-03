@@ -117,12 +117,16 @@ get_trust <- function(df, eu_members, t_natgov, t_eu, gender, age){
 
 nt_eu_2015 <- get_trust(trust_raw_2015, eu_members, t_natgov = "qa8a_8",
                         t_eu = "qa8a_10", gender = "d10", age = "d11") %>% 
-    rename("trust_natgov" = qa8a_8, "trust_eu" = qa8a_10,
-           "gender" = d10, "age" = d11)
+    rename("trust_natgov_qa8a_8" = qa8a_8, "trust_eu_qa8a_10" = qa8a_10,
+           "gender_d10" = d10, "age_d11" = d11) %>% 
+    select(id0.2013, id1.2013, id2.2013, trust_natgov_qa8a_8, trust_eu_qa8a_10,
+           gender_d10, age_d11)
 nt_eu_2016 <- get_trust(trust_raw_2016, eu_members, t_natgov = "qa8a_7",
                         t_eu = "qa8a_9", gender = "d10", age = "d11") %>% 
-    rename("trust_natgov_2016" = qa8a_7, "trust_eu_2016" = qa8a_9,
-           "gender" = d10, "age" = d11)
+    rename("trust_natgov_qa8a_7" = qa8a_7, "trust_eu_qa8a_9" = qa8a_9,
+           "gender_d10" = d10, "age_d11" = d11) %>% 
+    select(id0.2013, id1.2013, id2.2013, trust_natgov_qa8a_7, trust_eu_qa8a_9,
+           gender_d10, age_d11)
 ```
 
 Check if the missing NUTS2 regions equal in both years:
