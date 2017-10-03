@@ -49,12 +49,14 @@ trust_raw_2015 <- read_sav("/home/bdukai/Data/COHESIFY/Datasets for regression/T
 
 ```{r trust_prep, include=FALSE}
 # get values for trust in national government
-get_trust <- function(df, eu_members, t_natgov, t_eu, gender, age){
+get_trust <- function(df, eu_members, t_natgov, t_eu, gender, age, education,
+                      community, soc_class){
     # Mapping NUTS0 -> NUTS2
     # in this case all the countries that have only NUTS0 values also
     # contain only a single NUTS2 region, so no problem
     val_lvl0 <- df %>%
-        select_(t_natgov, t_eu, gender, age, "nuts", "nutslvl") %>%
+        select_(t_natgov, t_eu, gender, age, education, community,
+                soc_class, "nuts", "nutslvl") %>%
         filter(nutslvl == 0) %>%
         inner_join(distinct(select(nuts_2013_levels, c(id0, id1, id2))),
                    by = c("nuts" = "id0")) %>% 
@@ -66,7 +68,8 @@ get_trust <- function(df, eu_members, t_natgov, t_eu, gender, age){
     # these are regions where only NUTS1 values exist
     # they are marked to 'exclude' from the strict analysis at the end
     x <- df %>%
-        select_(t_natgov, t_eu, gender, age, "nuts", "nutslvl") %>%
+        select_(t_natgov, t_eu, gender, age, education, community,
+                soc_class, "nuts", "nutslvl") %>%
         filter(nutslvl == 1) %>%
         select(-nutslvl) %>%
         inner_join(distinct(select(tr_2010_2013, c(id0.2013, id1.2013, id1.2010))),
@@ -89,7 +92,8 @@ get_trust <- function(df, eu_members, t_natgov, t_eu, gender, age){
 
     # NUTS2
     val_lvl2 <- df %>%
-        select_(t_natgov, t_eu, gender, age, "nuts", "nutslvl") %>%
+        select_(t_natgov, t_eu, gender, age, education, community,
+                soc_class, "nuts", "nutslvl") %>%
         filter(nutslvl == 2) %>%
         inner_join(distinct(select(tr_2010_2013, c(id0.2013, id1.2013, 
                                                    id2.2013, id2.2010))),
@@ -99,7 +103,8 @@ get_trust <- function(df, eu_members, t_natgov, t_eu, gender, age){
     
     # NUTS3
     val_lvl3 <- df %>%
-    select_(t_natgov, t_eu, gender, age, "nuts", "nutslvl") %>%
+    select_(t_natgov, t_eu, gender, age, education, community,
+            soc_class, "nuts", "nutslvl") %>%
     filter(nutslvl == 3) %>%
     inner_join(tr_2010_2013,
                by = c("nuts" = "id3.2010")) %>% 
@@ -116,17 +121,23 @@ get_trust <- function(df, eu_members, t_natgov, t_eu, gender, age){
 }
 
 nt_eu_2015 <- get_trust(trust_raw_2015, eu_members, t_natgov = "qa8a_8",
-                        t_eu = "qa8a_10", gender = "d10", age = "d11") %>% 
+                        t_eu = "qa8a_10", gender = "d10", age = "d11",
+                        education = "d8", community = "d25",
+                        soc_class = "d63") %>% 
     rename("trust_natgov_qa8a_8" = qa8a_8, "trust_eu_qa8a_10" = qa8a_10,
-           "gender_d10" = d10, "age_d11" = d11) %>% 
+           "gender_d10" = d10, "age_d11" = d11, "education_d8" = d8,
+           "community_d25" = d25, "soc_class_d63" = d63) %>% 
     select(id0.2013, id1.2013, id2.2013, trust_natgov_qa8a_8, trust_eu_qa8a_10,
-           gender_d10, age_d11)
+           gender_d10, age_d11, education_d8, community_d25, soc_class_d63)
 nt_eu_2016 <- get_trust(trust_raw_2016, eu_members, t_natgov = "qa8a_7",
-                        t_eu = "qa8a_9", gender = "d10", age = "d11") %>% 
+                        t_eu = "qa8a_9", gender = "d10", age = "d11",
+                        education = "d8", community = "d25",
+                        soc_class = "d63") %>% 
     rename("trust_natgov_qa8a_7" = qa8a_7, "trust_eu_qa8a_9" = qa8a_9,
-           "gender_d10" = d10, "age_d11" = d11) %>% 
+           "gender_d10" = d10, "age_d11" = d11, "education_d8" = d8,
+           "community_d25" = d25, "soc_class_d63" = d63) %>% 
     select(id0.2013, id1.2013, id2.2013, trust_natgov_qa8a_7, trust_eu_qa8a_9,
-           gender_d10, age_d11)
+           gender_d10, age_d11, education_d8, community_d25, soc_class_d63)
 ```
 
 Check if the missing NUTS2 regions equal in both years:
