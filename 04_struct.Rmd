@@ -33,18 +33,71 @@ Classes:
 2. Translate the 2007-2013 data to NUTS 2010 then to 2013.
 
 ```{r read_struct, include=FALSE, cache=TRUE}
-struct_raw_2007 <- read.xlsx(
-    "~/Data/COHESIFY/Datasets for regression/SF eligibility/Database of the cumulative allocations to selected projects and expenditure at NUTS2 2007-2013.xlsx",
-    sheetIndex = 1, colIndex = c(4,7), startRow = 1, endRow = 17208, 
-    header = TRUE, stringsAsFactors = FALSE) %>% 
-    rename(nuts_2006 = Location.Cd, class = Objective)
+# struct_raw_2007 <- read.xlsx(
+#     "~/Data/COHESIFY/Datasets for regression/SF eligibility/Database of the cumulative allocations to selected projects and expenditure at NUTS2 2007-2013.xlsx",
+#     sheetIndex = 1, colIndex = c(4,7), startRow = 1, endRow = 17208, 
+#     header = TRUE, stringsAsFactors = FALSE) %>% 
+#     rename(nuts_2006 = Location.Cd, class = Objective)
+# struct_raw_2014 <- read.xlsx(
+#     "~/Data/COHESIFY/Datasets for regression/SF eligibility/Regional_policies_and_Europe_2020_RYB2016.xlsx",
+#     sheetIndex = 1, colIndex = c(1,4), startRow = 1, endRow = 287, 
+#     header = TRUE, stringsAsFactors = FALSE,
+#     colClasses = c("character", "numeric")) %>% 
+#     rename(nuts_2013 = NUTS, class = Class)
+
 struct_raw_2014 <- read.xlsx(
-    "~/Data/COHESIFY/Datasets for regression/SF eligibility/Regional_policies_and_Europe_2020_RYB2016.xlsx",
-    sheetIndex = 1, colIndex = c(1,4), startRow = 1, endRow = 287, 
-    header = TRUE, stringsAsFactors = FALSE,
-    colClasses = c("character", "numeric")) %>% 
-    rename(nuts_2013 = NUTS, class = Class)
+    "~/Data/COHESIFY/Datasets for regression/SF eligibility/Database of the cumulative allocations to selected projects and expenditure at NUTS2_2.xlsx",
+    sheetIndex = 1, colIndex = c(7, 11, 12), startRow = 1, endRow = 17208, 
+    header = TRUE, stringsAsFactors = FALSE) %>% 
+    rename(nuts_2006 = Location.Cd,
+           allocated_eur_million = Allocated.2014.EUR.MILLION,
+           expenditure_eur_million = Expenditures.2014.EUR.MILLION)
 ```
+
+Add up allocations and expenditure for each NUTS2 region. Convert units to euros from million euros.
+
+```{r allocated_expenditure}
+struct_2014_prep <- struct_raw_2014 %>% 
+    mutate(alloc_2014 = allocated_eur_million * 10^6,
+           exp_2014 = expenditure_eur_million * 10^6) %>% 
+    select(-expenditure_eur_million, -allocated_eur_million) %>% 
+    group_by(nuts_2006) %>% 
+    summarise(alloc_2014_total = sum(alloc_2014),
+              exp_2014_total = sum(exp_2014))
+
+# prepare HR04 region for manual binding
+hr04 <- struct_2014_prep %>% 
+    filter(nuts_2006 == "HR04") %>% 
+    rename(id2.2013 = nuts_2006)
+
+# Translate to 2013;
+# cast to numeric;
+# manually bind HR04, because the 2006 <-> translation schema ignores it, becuse,
+# it is not listed amoug the 2006 regions;
+# set Cooperation to 1 for DED4 and FI1D;
+struct_2014_prep2 <- struct_2014_prep %>% 
+    inner_join(distinct(select(tr_2006_2010, id2.2006, id2.2010)),
+               by = c("nuts_2006" = "id2.2006")) %>% 
+    inner_join(distinct(select(tr_2010_2013, id2.2010, id2.2013)),
+               by = "id2.2010") %>%
+    bind_rows(hr04)
+```
+
+There are these regions that went through a merge from 2006->2013. In the case of money, the respective values can be added up.
+
+```{r}
+struct_2014_prep2[struct_2014_prep2$id2.2013 %in% struct_2014_prep2[duplicated(struct_2014_prep2$id2.2013), ]$id2.2013, ]
+```
+
+```{r}
+struct_2014_clean <- struct_2014_prep2 %>% 
+    ungroup() %>% 
+    group_by(id2.2013) %>% 
+    summarise(alloc_2014_total = sum(alloc_2014_total),
+              exp_2014_total = sum(exp_2014_total))
+```
+
+
 
 ```{r struct_prep_2007, include=FALSE}
 # Structural Funds Eligibility 2007-2013, Reshape into binary variables
