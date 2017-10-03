@@ -1,0 +1,41 @@
+#  GDP per capita for 2015
+
+**Data source:** Eurostat
+
+**Last update** 30.03.17
+
+**Extracted on** 02.10.17
+
+**Nomenclature:** NUTS 2010/2013 level 2
+
+**Variables used:**
+
++ Gross domestic product (GDP) at current market prices by NUTS 2 regions [`nama_10r_2gdp`]
+
+```{r gdp_load, include=FALSE, cache=TRUE}
+gdp_raw <- read.xlsx(
+    "~/Data/COHESIFY/Datasets for regression/GDP/Gross domestic product (GDP) at current market prices by NUTS 2 regions nama_10r_2gdp.xls",
+    sheetIndex = 1, colIndex = c(1,11), startRow = 11, endRow = 451, 
+    header = FALSE, stringsAsFactors = FALSE,
+    colClasses = c("character", "numeric")) %>% 
+    rename(nuts = X1, gdp_2015 = X11)
+```
+
+Input units are in million euros. Change them to euros.
+
+```{r gdp_unit}
+gdp_raw["gdp_2015"] <- gdp_raw$gdp_2015 * 10^6
+```
+
+GDP is already in NUTS2013
+
+```{r gpd_prep, include=FALSE}
+
+# Get NUTS2 regions
+gdp_nuts2 <- gdp_raw %>%
+    filter(nchar(nuts) == 4) %>%
+    mutate(id0 = substr(nuts, 0, 2)) %>%
+    inner_join(eu_members, by = "id0") %>%
+    select(-id0) %>% 
+    rename("nuts_2013" = nuts)
+```
