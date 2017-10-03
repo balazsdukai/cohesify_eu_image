@@ -18,37 +18,40 @@
 
 ```{r acc2soc_load, include=FALSE, cache=TRUE}
 acc2soc_raw <- read.xlsx(
-    "~/Data/COHESIFY/Datasets for regression/Access to services/SGI typology.xlsx",
-    sheetIndex = 1, colIndex = c(1,7), startRow = 1, endRow = 287, 
+    "~/Data/COHESIFY/Datasets for regression/Access to services/SGI typology_2.xlsx",
+    sheetIndex = 1, colIndex = c(1,3,6), startRow = 1, endRow = 287, 
     header = TRUE, stringsAsFactors = FALSE) %>% 
-    rename(nuts_2006 = NUTS2, sgi_aggregated = SGI.aggreg.)
+    rename(nuts_2006 = NUTS2, sgei = SGEI.aggreg., ssgi = SSGI.aggreg.)
 ```
 
 ```{r acc2soc_tranlate, include=FALSE}
-acc2soc_translate <- acc2soc_raw %>% 
-    inner_join(tr_2006_2010, by = c("nuts_2006" = "id2.2006")) %>% 
+acc2soc_clean <- acc2soc_raw %>% 
+    inner_join(distinct(select(tr_2006_2010, id2.2010, id2.2006)),
+               by = c("nuts_2006" = "id2.2006")) %>% 
     rename(id2.2006 = nuts_2006) %>% 
-    group_by(id2.2010) %>% 
-    summarise(sgi_aggregated = mean(sgi_aggregated)) %>% 
-    mutate(x = substr(id2.2010, 0, 2)) %>% 
-    inner_join(eu_members, by = c("x" = "id0")) %>% 
-    ungroup()
-
-acc2soc_clean <- acc2soc_translate %>% 
     inner_join(
-        filter(
-            select(tr_2010_2013, -id3.2010, -id3.2013),
-            !(id2.2010 == "SI02" & id2.2013 == "SI03")
-            ),
-        by = "id2.2010") %>% 
-    select(id2.2013, sgi_aggregated) %>% 
-    distinct() %>% 
-    mutate(sgi_aggregated.incl = case_when(id2.2013 == "FI1D" | id2.2013 == "DE40" ~ 0,
-                                           TRUE ~ 1))
-# see comment at Data quality
-acc2soc_clean[acc2soc_clean$id2.2013 == "FI1D", "sgi_aggregated"] <- NA
-acc2soc_clean[acc2soc_clean$id2.2013 == "DE40", "sgi_aggregated"] <- NA
+        distinct(select(tr_2010_2013, -id3.2010, -id3.2013)),
+        by = "id2.2010"
+    ) %>% 
+    select(id2.2013, sgei, ssgi)
 ```
+
+The following regions were merged, split or whatever in the previous NUTS versions, thus it is not possible now to clearly determine a value for them. Therefore there are set a missing value.
+
+```{r}
+acc2soc_clean[duplicated(acc2soc_clean$id2.2013), "id2.2013"]
+```
+
+```{r}
+# see comment at Data quality
+acc2soc_clean[acc2soc_clean$id2.2013 == "FI1D", c("sgei", "ssgi")] <- NA
+acc2soc_clean[acc2soc_clean$id2.2013 == "DE40", c("sgei", "ssgi")] <- NA
+acc2soc_clean[acc2soc_clean$id2.2013 == "DED4", c("sgei", "ssgi")] <- NA
+acc2soc_clean[acc2soc_clean$id2.2013 == "SI03", c("sgei", "ssgi")] <- NA
+
+acc2soc_clean <- filter(acc2soc_clean, !is.na(sgei))
+```
+
 
 ```{r check_acc2soc, include=FALSE}
 # Check if all EU members are present, should give 28
@@ -76,7 +79,7 @@ The following aspects might influence the quality of the data:
 
 + The NUTS0 region *HR* is not present in the data.
 
-+ Merge of *FI1A* + *FI13* = *FI1D*. Merge of *DE41* + *DE42* = *DE40*. In both cases the NUTS 2013 regions (*FI1D*, *DE40*) are assigned a missing value, because population data is not available for NUTS 2006 regions, thus a weighted average value for the NUTS 2010/2013 region cannot be computed.
++ Merge of *FI1A* + *FI13* = *FI1D*. Merge of *DE41* + *DE42* = *DE40*. In both cases the NUTS 2013 regions (*FI1D*, *DE40*) are assigned a missing value, because population data is not available for NUTS 2006 regions, thus a weighted average value for the NUTS 2010/2013 region cannot be computed. Also *DED4* and *SI03*.
 
 ```{r clean_up7, include=FALSE, message=FALSE, warning=FALSE}
 rm(acc2soc_translate, acc2soc_raw)
