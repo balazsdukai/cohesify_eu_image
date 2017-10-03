@@ -19,6 +19,10 @@ Question in the survey:\
 
 + Trust in *The European Union* – `qa8a_10` from ZA6643, `qa8a_9` from ZA6694
 
++ Gender – `d10` from ZA6643, ZA6694
+
++ Age – `d11` from ZA6643, ZA6694
+
 Variable encoding in the original data set:
 
 + 1 – Tend to trust
@@ -43,25 +47,14 @@ trust_raw_2016 <- read_sav("~/Data/COHESIFY/Datasets for regression/Trust in nat
 trust_raw_2015 <- read_sav("/home/bdukai/Data/COHESIFY/Datasets for regression/Trust in national government/ZA6643_v3-0-0 (2).sav")
 ```
 
-```{r}
-df <- trust_raw_2015
-t_natgov <- "qa8a_8"
-t_eu <- "qa8a_10"
-
-
-
-```
-
-
-
 ```{r trust_prep, include=FALSE}
 # get values for trust in national government
-get_trust <- function(df, eu_members, t_natgov, t_eu){
+get_trust <- function(df, eu_members, t_natgov, t_eu, gender, age){
     # Mapping NUTS0 -> NUTS2
     # in this case all the countries that have only NUTS0 values also
     # contain only a single NUTS2 region, so no problem
     val_lvl0 <- df %>%
-        select_(t_natgov, t_eu, "nuts", "nutslvl") %>%
+        select_(t_natgov, t_eu, gender, age, "nuts", "nutslvl") %>%
         filter(nutslvl == 0) %>%
         inner_join(distinct(select(nuts_2013_levels, c(id0, id1, id2))),
                    by = c("nuts" = "id0")) %>% 
@@ -73,7 +66,7 @@ get_trust <- function(df, eu_members, t_natgov, t_eu){
     # these are regions where only NUTS1 values exist
     # they are marked to 'exclude' from the strict analysis at the end
     x <- df %>%
-        select_(t_natgov, t_eu, "nuts", "nutslvl") %>%
+        select_(t_natgov, t_eu, gender, age, "nuts", "nutslvl") %>%
         filter(nutslvl == 1) %>%
         select(-nutslvl) %>%
         inner_join(distinct(select(tr_2010_2013, c(id0.2013, id1.2013, id1.2010))),
@@ -96,7 +89,7 @@ get_trust <- function(df, eu_members, t_natgov, t_eu){
 
     # NUTS2
     val_lvl2 <- df %>%
-        select_(t_natgov, t_eu, "nuts", "nutslvl") %>%
+        select_(t_natgov, t_eu, gender, age, "nuts", "nutslvl") %>%
         filter(nutslvl == 2) %>%
         inner_join(distinct(select(tr_2010_2013, c(id0.2013, id1.2013, 
                                                    id2.2013, id2.2010))),
@@ -106,7 +99,7 @@ get_trust <- function(df, eu_members, t_natgov, t_eu){
     
     # NUTS3
     val_lvl3 <- df %>%
-    select_(t_natgov, t_eu, "nuts", "nutslvl") %>%
+    select_(t_natgov, t_eu, gender, age, "nuts", "nutslvl") %>%
     filter(nutslvl == 3) %>%
     inner_join(tr_2010_2013,
                by = c("nuts" = "id3.2010")) %>% 
@@ -122,9 +115,50 @@ get_trust <- function(df, eu_members, t_natgov, t_eu){
         rename("id2.2013" = id2)
 }
 
-nt_eu_2015 <- get_trust(trust_raw_2015, eu_members, "qa8a_8", "qa8a_10")
-nt_eu_2016 <- get_trust(trust_raw_2016, eu_members, "qa8a_7", "qa8a_9")
+nt_eu_2015 <- get_trust(trust_raw_2015, eu_members, t_natgov = "qa8a_8",
+                        t_eu = "qa8a_10", gender = "d10", age = "d11") %>% 
+    rename("trust_natgov" = qa8a_8, "trust_eu" = qa8a_10,
+           "gender" = d10, "age" = d11)
+nt_eu_2016 <- get_trust(trust_raw_2016, eu_members, t_natgov = "qa8a_7",
+                        t_eu = "qa8a_9", gender = "d10", age = "d11") %>% 
+    rename("trust_natgov_2016" = qa8a_7, "trust_eu_2016" = qa8a_9,
+           "gender" = d10, "age" = d11)
 ```
+
+Check if the missing NUTS2 regions equal in both years:
+
+```{r}
+all(
+    nt_eu_2015 %>%
+        filter(is.na(id2.2013)) %>%
+        select(id1.2013) %>%
+        unique() %>% 
+        arrange(id1.2013) ==
+    nt_eu_2016 %>%
+        filter(is.na(id2.2013)) %>%
+        select(id1.2013) %>%
+        unique() %>% 
+        arrange(id1.2013)
+)
+```
+
+NUTS1 regions with missing NUTS2 regions:
+
+```{r}
+round(nrow(nt_eu_2015 %>%
+    filter(is.na(id2.2013))) / nrow(nt_eu_2015), 2)
+
+round(nrow(nt_eu_2016 %>%
+    filter(is.na(id2.2013))) / nrow(nt_eu_2016), 2)
+
+(x <- (nt_eu_2015 %>%
+        filter(is.na(id2.2013)) %>%
+        select(id1.2013) %>%
+        unique() %>% 
+        arrange(id1.2013))$id1.2013)
+```
+
+
 
 ```{r trust_prep2, include=FALSE}
 

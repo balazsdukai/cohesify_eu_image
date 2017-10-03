@@ -96,9 +96,12 @@ options(knitr.table.format ='pandoc')
 
 \pagebreak
 
+```{r join_everything2, include=FALSE}
+eu_vars_2015 <- nt_eu_2015 %>% 
+    left_join(select(qog_clean, -eqi.incl), by = "id2.2013")
+```
 
-
-```{r join_everything, include=FALSE}
+```{r join_everything, include=FALSE, eval=FALSE}
 eu_vars <- typ_border_clean %>% 
     full_join(trust_clean, by = "id2.2013") %>% 
     full_join(qog_clean, by = "id2.2013") %>% 
